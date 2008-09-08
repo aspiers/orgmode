@@ -1,3 +1,99 @@
+2008-09-07  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-exp.el (org-export-as-html): Do not turn on the major mode
+	if the buffer will be killed anyway.
+	(org-get-current-options): Exclude the #+TEXT field.
+	(org-export-as-html): Make sure text before the first headline is
+	a paragraph.
+
+	* org-publish.el (org-publish-org-to): Tell the exporter that this
+	buffer will be killed, so it is not necessary to do major mode
+	initialization.
+
+	* org-archive.el (org-archive-to-archive-sibling): Show empty
+	lines after folding the archive sibling.
+
+	* org.el (org-log-note-extra): New variable.
+
+2008-09-05  Bastien Guerry  <bzg@altern.org>
+
+	* org.el (org-additional-option-like-keywords): Added keywords for
+	the _QUOTE, _VERSE and _SRC environments.
+
+	* org-export-latex.el (org-export-latex-preprocess): Fix bug when
+	exporting _QUOTE and _VERSE environments.
+
+2008-09-05  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-agenda.el (org-agenda-filter-by-tag): New command.
+
+	* org-exp.el (org-get-current-options): Remove angular brackets
+	from the date entry.
+
+	* org.el (org-edit-fixed-width-region): New function.
+	(org-edit-fixed-width-region): Also try
+	`org-edit-fixed-width-region'.
+	(org-edit-fixed-width-region-mode): New option.
+	(org-activate-code): Only interprete lines starting with colon
+	plus a space as example lines.
+
+	* org-remember.el (org-remember-templates): Add nil instead of
+	empty strings to fix the length of remember templates.
+
+	* org-table.el (org-calc-default-modes): Fix the time format for
+	calc, from 12 hour to 24 hour clock.
+
+2008-09-04  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-agenda.el (org-agenda-get-deadlines)
+	(org-agenda-get-scheduled): Avoid `time-of-day' extraction for
+	entries that are pre-warnings of deadlines or reminders.
+
+	* org.el (org-sort-entries-or-items): Make numeric and alpha
+	comparisons ignore any TODO keyword and priority cookie.
+
+	* org-remember.el (org-remember-handler): Reinterpretation of the
+	prefix argument.
+
+2008-09-03  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-agenda.el (org-agenda-get-scheduled): Use new
+	`org-scheduled' face.
+
+	* org-faces.el (org-scheduled): New face.
+
+	* org-wl.el (org-wl-open): Remove incorrect declaration.
+
+	* org-gnus.el (org-gnus-store-link): Support for :to information
+	in gnus links.
+
+	* org-exp.el (org-export-as-html): Fixed typo in creator
+	information.
+	(org-export-protect-examples): New parameter indent.  Insert extra
+	spaces only when this parameter is specified.
+	(org-export-preprocess-string): Call `org-export-protect-examples'
+	with an indentation parameter when exporting to ASCII.
+
+	* org-remember.el (org-remember-templates)
+	(org-remember-apply-template): Allow the file component to be a
+	function.
+
+	* org.el (org-goto-local-search-headings): Renamed from
+	`org-goto-local-search-forward-headings'.  Added the possibility
+	to search backwards.
+
+2008-09-02  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-export-latex.el (org-export-latex): New customization
+	group.
+
+	* org-agenda.el (org-write-agenda): Erase buffer for txt export.
+
+2008-09-01  Carsten Dominik  <dominik@science.uva.nl>
+
+	* org-exp.el (org-html-do-expand): Allow {} to terminate
+	tex macro
+
 2008-07-29  Carsten Dominik  <dominik@science.uva.nl>
 
 	* org.el (org-buffer-list): Select buffers based on major mode,

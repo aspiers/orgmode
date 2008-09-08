@@ -4100,6 +4100,11 @@ Update all dynamic blocks (@pxref{Dynamic blocks}).  This is useful if
 you have several clock table blocks in a buffer.
 @end table
 
+You can add formulas to the column view table and you may add plotting
+instructions in front of the table - these will survive an update of the
+block.  If there is a @code{#+TBLFM:} after the table, the table will actually
+be recalculated automatically after an update.
+
 @node Property API,  , Column view, Properties and Columns
 @section The Property API
 @cindex properties, API
@@ -4221,9 +4226,10 @@ format.
 @table @kbd
 @kindex C-c .
 @item C-c .
-Prompt for a date and insert a corresponding time stamp.  When the
-cursor is at a previously used time stamp, it is updated to NOW.  When
-this command is used twice in succession, a time range is inserted.
+Prompt for a date and insert a corresponding time stamp.  When the cursor is
+at an existing time stamp in the buffer, the command is used to modify this
+timestamp instead of inserting a new one.  When this command is used twice in
+succession, a time range is inserted.
 @c
 @kindex C-u C-c .
 @item C-u C-c .
@@ -4977,11 +4983,10 @@ specified in the template, or it will use the default file and headlines.
 The window configuration will be restored, sending you back to the working
 context before the call to @code{remember}.  To re-use the location found
 during the last call to @code{remember}, exit the remember buffer with
-@kbd{C-u C-u C-c C-c}, i.e. specify a double prefix argument to @kbd{C-c
-C-c}.
+@kbd{C-0 C-c C-c}, i.e. specify a zero prefix argument to @kbd{C-c C-c}.
 
 If you want to store the note directly to a different place, use
-@kbd{C-u C-c C-c} instead to exit remember@footnote{Configure the
+@kbd{C-1 C-c C-c} instead to exit remember@footnote{Configure the
 variable @code{org-remember-store-without-prompt} to make this behavior
 the default.}.  The handler will then first prompt for a target file -
 if you press @key{RET}, the value specified for the template is used.
@@ -5800,21 +5805,31 @@ that entry would be in the original buffer (taken from a property, from a
 @code{#+COLUMNS} line, or from the default variable
 @code{org-columns-default-format}), will be used in the agenda.
 
-@tsubheading{Query editing}
+@tsubheading{Secondary filtering and query editing}
 @cindex query editing, in agenda
+
+@kindex /
+@item /
+Filter the current agenda view with respect to a tag.  You will be prompted
+for a tag selection letter.  Pressing @key{TAB} at that prompt will offer use
+completion to select a tag (including any tags that do not have a selection
+character).  The command then hides all entries that do not contain or
+inherit this tag.  When called with prefix arg, remove the entries that
+@emph{do} have the tag.  A second @kbd{/} at the prompt will unhide any
+hidden entries.
 
 @kindex [
 @kindex ]
 @kindex @{
 @kindex @}
 @item [ ] @{ @}
-In the @i{search view} (@pxref{Keyword search}), these keys add new
-search words (@kbd{[} and @kbd{]}) or new regular expressions (@kbd{@{}
-and @kbd{@}}) to the query string.  The opening bracket/brace will add a
-positive search term prefixed by @samp{+}, indicating that this search
-term @i{must} occur/match in the entry.  Closing bracket/brace add a
-negative search term which @i{must not} occur/match in the entry for it
-to be selected.
+In the @i{search view} (@pxref{Keyword search}), these keys add new search
+words (@kbd{[} and @kbd{]}) or new regular expressions (@kbd{@{} and
+@kbd{@}}) to the query string.  The opening bracket/brace will add a positive
+search term prefixed by @samp{+}, indicating that this search term @i{must}
+occur/match in the entry.  The closing bracket/brace will add a negative
+search term which @i{must not} occur/match in the entry for it to be
+selected.
 
 
 @tsubheading{Remote editing}
@@ -6538,7 +6553,8 @@ Angles are written as Greek letters \alpha, \beta and \gamma.
 
 During HTML export (@pxref{HTML export}), these symbols are translated
 into the proper syntax for HTML, for the above examples this is
-@samp{&alpha;} and @samp{&rarr;}, respectively.
+@samp{&alpha;} and @samp{&rarr;}, respectively.  If you need such a symbol
+inside a word, terminate it like this: @samp{\Aacute@{@}stor}.
 
 @node Subscripts and superscripts, LaTeX fragments, Math symbols, Embedded LaTeX
 @section Subscripts and superscripts
@@ -6924,7 +6940,12 @@ example:
 @item C-c '
 Edit the source code example at point in its native mode.  This works by
 switching to an indirect buffer, narrowing the buffer and switching to the
-other mode.  You need to exit by pressing @kbd{C-c '} again.
+other mode.  You need to exit by pressing @kbd{C-c '} again.  Fixed-width
+regions (where each line starts with a colon followed by a space) will be
+edited using @code{artist-mode}@footnote{You may select a different-mode with
+the variable @code{org-edit-fixed-width-region-mode}.} to allow creating
+ASCII drawings easily.  Using this command in an empty line will create a new
+fixed-width region.
 @end table
 
 
@@ -8336,9 +8357,11 @@ the variable @code{org-hide-leading-stars} or change this on a per-file basis
 with
 
 @example
-#+STARTUP: showstars
 #+STARTUP: hidestars
 @end example
+
+@noindent
+Note that the opposite behavior is selected with @code{showstars}.
 
 With hidden stars, the tree becomes:
 

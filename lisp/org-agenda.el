@@ -1159,6 +1159,7 @@ The following commands are available:
 (org-defkey org-agenda-mode-map "]" 'org-agenda-manipulate-query-subtract)
 (org-defkey org-agenda-mode-map "{" 'org-agenda-manipulate-query-add-re)
 (org-defkey org-agenda-mode-map "}" 'org-agenda-manipulate-query-subtract-re)
+(org-defkey org-agenda-mode-map "/" 'org-agenda-filter-by-tag)
 
 (defvar org-agenda-keymap (copy-keymap org-agenda-mode-map)
   "Local keymap for agenda entries from Org-mode.")
@@ -1879,6 +1880,7 @@ higher priority settings."
 	  (t
 	   (let ((bs (buffer-string)))
 	     (find-file file)
+	     (erase-buffer)
 	     (insert bs)
 	     (save-buffer 0)
 	     (kill-buffer (current-buffer))
@@ -3427,7 +3429,8 @@ the documentation of `org-diary'."
 				       (funcall (nth 1 org-agenda-deadline-leaders) diff date)
 				     (format (nth 1 org-agenda-deadline-leaders)
 					     diff)))
-				 head category tags timestr))))
+				 head category tags
+				 (if (not (= diff 0)) nil timestr)))))
 		(setq txt org-agenda-no-heading-message))
 	      (when txt
 		(setq face (org-agenda-deadline-face dfrac wdays))
@@ -3510,12 +3513,15 @@ FRACTION is what fraction of the head-warning time has passed."
 				     (car org-agenda-scheduled-leaders)
 				   (format (nth 1 org-agenda-scheduled-leaders)
 					   (- 1 diff)))
-				 head category tags timestr))))
+				 head category tags
+				 (if (not (= diff 0)) nil timestr)))))
 		(setq txt org-agenda-no-heading-message))
 	      (when txt
-		(setq face (if pastschedp
-			       'org-scheduled-previously
-			     'org-scheduled-today))
+		(setq face
+		      (cond
+		       (pastschedp 'org-scheduled-previously)
+		       (todayp 'org-scheduled-today)
+		       (t 'org-scheduled)))
 		(org-add-props txt props
 		  'undone-face face
 		  'face (if donep 'org-done face)
@@ -4072,6 +4078,56 @@ When this is the global TODO list, a prefix argument will be interpreted."
     (and cols (interactive-p) (org-agenda-columns))
     (goto-line line)
     (recenter window-line)))
+
+(defun org-agenda-filter-by-tag (strip &optional char)
+  "Keep only those lines in the agenda buffer that have a specific tag.
+The tag is selected with its fast selection letter, as configured.
+With prefix argument STRIP, remove all lines that do have the tag."
+  (interactive "P")
+  (let (char a tag (inhibit-read-only t))
+      (message "Select tag [%s], [TAB] to complete, [/] to restore: "
+	       (mapconcat
+		(lambda (x) (if (cdr x) (char-to-string (cdr x)) ""))
+		org-tag-alist-for-agenda ""))
+      (setq char (read-char))
+      (when (equal char ?\t)
+	(unless (local-variable-p 'org-global-tags-completion-table)
+	  (org-set-local 'org-global-tags-completion-table
+			 (org-global-tags-completion-table)))
+	(let ((completion-ignore-case t))
+	  (setq tag (completing-read
+		     "Tag: " org-global-tags-completion-table))))
+      (cond
+       ((equal char ?/) (org-agenda-filter-by-tag-show-all))
+       ((or (setq a (rassoc char org-tag-alist-for-agenda))
+	    (and tag (setq a (cons tag nil))))
+	(org-agenda-filter-by-tag-show-all)
+	(setq tag (car a))
+	(save-excursion
+	  (goto-char (point-min))
+	  (while (not (eobp))
+	    (if (get-text-property (point) 'org-marker)
+		(progn
+		  (setq tags (get-text-property (point) 'tags))
+		  (if (or (and (member tag tags) strip)
+			  (and (not (member tag tags)) (not strip)))
+		      (org-agenda-filter-by-tag-hide-line))
+		  (beginning-of-line 2))
+	      (beginning-of-line 2)))))
+       (t (error "Invalid tag selection character %c" char)))))
+
+(defvar org-agenda-filter-overlays nil)
+
+(defun org-agenda-filter-by-tag-hide-line ()
+  (let (ov)
+    (setq ov (org-make-overlay (point-at-bol) (1+ (point-at-eol))))
+    (org-overlay-put ov 'invisible t)
+    (org-overlay-put ov 'type 'tags-filter)
+    (push ov org-agenda-filter-overlays)))
+
+(defun org-agenda-filter-by-tag-show-all ()
+  (mapc 'org-delete-overlay org-agenda-filter-overlays)
+  (setq org-agenda-filter-overlays nil))
 
 (defun org-agenda-manipulate-query-add ()
   "Manipulate the query by adding a search term with positive selection.
@@ -5310,5 +5366,4 @@ belonging to the \"Work\" category."
 ;; arch-tag: 77f7565d-7c4b-44af-a2df-9f6f7070cff1
 
 ;;; org-agenda.el ends here
-
 

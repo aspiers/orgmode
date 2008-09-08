@@ -191,7 +191,7 @@ t:      accept as input and present for editing"
     calc-angle-mode    deg
     calc-prefer-frac   nil
     calc-symbolic-mode nil
-    calc-date-format (YYYY "-" MM "-" DD " " Www (" " HH ":" mm))
+    calc-date-format (YYYY "-" MM "-" DD " " Www (" " hh ":" mm))
     calc-display-working-message t
     )
   "List with Calc mode settings for use in calc-eval for table formulas.
@@ -3552,6 +3552,7 @@ a radio table."
 	(delete-region beg (point))))
     (insert txt "\n")))
 
+;;;###autoload
 (defun org-table-to-lisp (&optional txt)
   "Convert the table at point to a Lisp structure.
 The structure will be a list.  Each item is either the symbol `hline'

@@ -15,13 +15,108 @@
 :VISIBILITY: content
 :END:
 
+** Incompatible changes
+
+**** Prefix interpretation when storing remember notes
+     The prefix argument to the `C-c C-c' command that finishes a
+     remember process is not interpetred differently:
+
+     :C-c C-c       Store the note to predefined file and headline
+     :C-1 C-c C-c   Select the storage location interactively
+     :C-0 C-c C-c   Re-use the last used location
+     :C-u C-c C-c   Like C-c C-c, but immediately visit the note
+     :              in its new location.
+
+     This was requested by John Wiegley.
+
+
 ** Details
 
-** It is now possible to define filters for column view
-   The filter can modify the value that will be displayed in a
-   column, for example it can cut out a part of a time stamp.
-   For more information, look at the variable
-   =org-columns-modify-value-for-display-function=.
+*** Column view capture tables can have formulas and plotting instructions
+    If you attach formulas and plotting instructions to a table
+    capturing column view, these extra lines will now survive an
+    update of the coloumn view capture, and any formulas will be
+    re-applied to the captured table.  This works be keeping any
+    continuous block of comments bfore an after the actual table.
+
+*** The note buffer for clocking out now mentions the task
+    
+    This was a request by Peter Frings.
+
+*** Secondary filtering of agenda views.
+
+    You can now easily and interactively filter an existing
+    agenda view with respect to a tag.  This command is executed
+    with the =/= key in the agenda.  You will be prompted for a
+    tag selection key, and all entries that do not contain or
+    inherit the corresponding tag will be hidden.  With a prefix
+    argument, the complementary filter is applied: entries that
+    do have the tag will be hidden.
+
+    This operation only hides lines in the agenda buffer.  It
+    does not initiate a new search and therefore is very fast.
+
+    If you press TAB at the tag selection prompt, you will be
+    switched to a completion interface to select a tag.  This is
+    useful in particular when you want to select a tag that does
+    not have a direct access character.
+
+    A double =/ /= will restore the original agenda view by
+    unhiding any hidden lines.
+
+    This functionality was John Wiegley's idea.  It is a simpler
+    implementation of some of the query-editing features proposed
+    and implemented some time ago by Christopher League (see the
+    file contrib/lisp/org-interactive-query.el).
+
+*** Editing fixed-width regions with picture or artist mode
+
+    The command @<code>C-c '@</code> (that is =C-c= followed by a
+    single quote) can now also be used to switch to a special
+    editing mode for fixed-width sections.  The default mode is
+    =artist-mode= which allows you to create ASCII drawings.
+
+    It works like this: Enter the editing mode with
+    @<code>C-c '@</code>.  An indirect buffer will be created and
+    narrowed to the fixed-width region.  Edit the drawing, and
+    press @<code>C-c '@</code> again to exit.
+
+    Lines in a fixed-width region should be preceded by a colon
+    followed by at least one space.  These will be removed during
+    editing, and then added back when you exit the editing mode.
+
+    Using the command in an empty line will create a new
+    fixed-width region.
+
+*** New interpretation of prefix arguments when exiting remember
+    The prefix argument to the `C-c C-c' command that finishes a
+    remember process is not interpetred differently:
+
+    :C-c C-c       Store the note to predefined file and headline
+    :C-1 C-c C-c   Select the storage location interactively
+    :C-0 C-c C-c   Re-use the last used location
+    :C-u C-c C-c   Like C-c C-c, but immediately visit the note
+    :              in its new location.
+
+    This was requested by John Wiegley.
+
+*** Sorting entries now ignores the TODO keyword and the priority
+    Numerical and alphanumerical sorting now skips any TODO
+    keyword or priority cookie when constructing the comparison
+    string.  This was a request by Wanrong Lin.
+
+*** New face =org-scheduled= for entries that at some time in the future.
+    This was a request by Richard G Rigley.
+*** Remember templates for gnus links can now use the :to escape.
+    Thanks to Tommy Lindgren for a patch to this effect.
+*** The file specification in a remember template may now be a function
+    Thanks to Gregory Sullivan for a patch to this effect.
+
+*** It is now possible to define filters for column view
+    The filter can modify the value that will be displayed in a
+    column, for example it can cut out a part of a time stamp.
+    For more information, look at the variable
+    =org-columns-modify-value-for-display-function=.
 
 * Version 6.06
 

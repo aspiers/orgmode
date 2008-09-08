@@ -256,6 +256,19 @@ become effective."
   :group 'org-startup
   :type 'boolean)
 
+(defcustom org-use-extra-keys nil
+  "Non-nil means use extra key sequence definitions for certain
+commands.  This happens automatically if you run XEmacs or if
+window-system is nil.  This variable lets you do the same
+manually.  You must set it before loading org.
+
+Example: on Carbon Emacs 22 running graphically, with an external
+keyboard on a Powerbook, the default way of setting M-left might
+not work for either Alt or ESC.  Setting this variable will make
+it work for ESC."
+  :group 'org-startup
+  :type 'boolean)
+
 (if (fboundp 'defvaralias)
     (defvaralias 'org-CUA-compatible 'org-replace-disputed-keys))
 
@@ -668,6 +681,16 @@ When nil, such lines will be treated like ordinary lines.
 See also the QUOTE keyword."
   :group 'org-edit-structure
   :type 'boolean)
+
+(defcustom org-edit-fixed-width-region-mode 'artist-mode
+  "The mode that should be used to edit fixed-width regions.
+These are the regions where each line starts with a colon."
+  :group 'org-edit-structure
+  :type '(choice
+	  (const artist-mode)
+	  (const picture-mode)
+	  (const fundamental-mode)
+	  (function :tag "Other (specify)")))
 
 (defcustom org-goto-auto-isearch t
   "Non-nil means, typing characters in org-goto starts incremental search."
@@ -1248,7 +1271,10 @@ This is list of cons cells.  Each cell contains:
   - a cons cell (:regexp . \"REGEXP\") with a regular expression matching
     headlines that are refiling targets.
   - a cons cell (:level . N).  Any headline of level N is considered a target.
-  - a cons cell (:maxlevel . N). Any headline with level <= N is a target."
+  - a cons cell (:maxlevel . N). Any headline with level <= N is a target.
+
+When this variable is nil, all top-level headlines in the current buffer
+are used, equivalent to the vlaue `((nil . (:level . 1))'."
   :group 'org-remember
   :type '(repeat
 	  (cons
@@ -1344,6 +1370,8 @@ taken from the (otherwise obsolete) variable `org-todo-interpretation'."
 (make-variable-buffer-local 'org-todo-keywords-1)
 (defvar org-todo-keywords-for-agenda nil)
 (defvar org-done-keywords-for-agenda nil)
+(defvar org-todo-keyword-alist-for-agenda nil)
+(defvar org-tag-alist-for-agenda nil)
 (defvar org-agenda-contributing-files nil)
 (defvar org-not-done-keywords nil)
 (make-variable-buffer-local 'org-not-done-keywords)
@@ -1434,7 +1462,7 @@ the following lines anywhere in the buffer:
   (setq org-log-done 'note)))
 
 (defcustom org-log-note-clock-out nil
-  "Non-nil means, recored a note when clocking out of an item.
+  "Non-nil means, record a note when clocking out of an item.
 This can also be configured on a per-file basis by adding one of
 the following lines anywhere in the buffer:
 
@@ -2344,7 +2372,7 @@ outside the table.")
    org-table-rotate-recalc-marks org-table-sort-lines org-table-sum
    org-table-toggle-coordinate-overlays
    org-table-toggle-formula-debugger org-table-wrap-region
-   orgtbl-mode turn-on-orgtbl)))
+   orgtbl-mode turn-on-orgtbl org-table-to-lisp)))
 
 (defun org-at-table-p (&optional table-type)
   "Return t if the cursor is inside an org-type table.
@@ -3499,8 +3527,8 @@ will be prompted for."
 	  (throw 'exit t))))))
 
 (defun org-activate-code (limit)
-  (if (re-search-forward "^[ \t]*\\(:.*\\)" limit t)
-      (unless (get-text-property (match-beginning 1) 'face)
+  (if (re-search-forward "^[ \t]*\\(: .*\n?\\)" limit t)
+      (progn
 	(remove-text-properties (match-beginning 0) (match-end 0)
 				'(display t invisible t intangible t))
 	t)))
@@ -4351,7 +4379,7 @@ or nil."
   (let ((isearch-mode-map org-goto-local-auto-isearch-map)
 	(isearch-hide-immediately nil)
 	(isearch-search-fun-function
-	 (lambda () 'org-goto-local-search-forward-headings))
+	 (lambda () 'org-goto-local-search-headings))
 	(org-goto-selected-point org-goto-exit-command))
     (save-excursion
       (save-window-excursion
@@ -4392,10 +4420,12 @@ or nil."
 (define-key org-goto-local-auto-isearch-map "\C-i" 'isearch-other-control-char)
 (define-key org-goto-local-auto-isearch-map "\C-m" 'isearch-other-control-char)
 
-(defun org-goto-local-search-forward-headings (string bound noerror)
-  "Search and make sure that anu matches are in headlines."
+(defun org-goto-local-search-headings (string bound noerror)
+  "Search and make sure that any matches are in headlines."
   (catch 'return
-    (while (search-forward string bound noerror)
+    (while (if isearch-forward
+               (search-forward string bound noerror)
+             (search-backward string bound noerror))
       (when (let ((context (mapcar 'car (save-match-data (org-context)))))
 	      (and (member :headline context)
 		   (not (member :tags context))))
@@ -5295,13 +5325,13 @@ WITH-CASE, the sorting considers case as well."
 	   (lambda nil
 	     (cond
 	      ((= dcst ?n)
-	       (if (looking-at outline-regexp)
-		   (string-to-number (buffer-substring (match-end 0)
-						       (point-at-eol)))
+	       (if (looking-at org-complex-heading-regexp)
+		   (string-to-number (match-string 4))
 		 nil))
 	      ((= dcst ?a)
-	       (funcall case-func (buffer-substring (point-at-bol)
-						    (point-at-eol))))
+	       (if (looking-at org-complex-heading-regexp)
+		   (funcall case-func (match-string 4))
+		 nil))
 	      ((= dcst ?t)
 	       (if (re-search-forward org-ts-regexp
 				      (save-excursion
@@ -5380,6 +5410,7 @@ If WITH-CASE is non-nil, the sorting will be case-sensitive."
 (define-key org-exit-edit-mode-map "\C-c'" 'org-edit-src-exit)
 (defvar org-edit-src-force-single-line nil)
 (defvar org-edit-src-from-org-mode nil)
+(defvar org-edit-src-picture nil)
 
 (define-minor-mode org-exit-edit-mode
   "Minor mode installing a single key binding, \"C-c '\" to exit special edit.")
@@ -5427,6 +5458,60 @@ exit by killing the buffer with \\[org-edit-src-exit]."
       (org-set-local 'header-line-format msg)
       (message "%s" msg)
       t)))
+
+(defun org-edit-fixed-width-region ()
+  "Edit the fixed-width ascii drawing at point.
+This must be a region where each line starts with ca colon followed by
+a space character.
+An indirect buffer is created, and that buffer is then narrowed to the
+example at point and switched to artist-mode.  When done,
+exit by killing the buffer with \\[org-edit-src-exit]."
+  (interactive)
+  (let ((line (org-current-line))
+	(case-fold-search t)
+	(msg (substitute-command-keys
+	      "Edit, then exit with C-c ' (C-c and single quote)"))
+	(org-mode-p (eq major-mode 'org-mode))
+	beg end lang lang-f)
+    (beginning-of-line 1)
+    (if (looking-at "[ \t]*[^:\n \t]")
+	nil
+      (if (looking-at "[ \t]*\\(\n\\|\\'\\)]")
+	  (setq beg (point) end (match-end 0))
+	(save-excursion
+	  (if (re-search-backward "^[ \t]*[^:]" nil 'move)
+	      (setq beg (point-at-bol 2))
+	    (setq beg (point))))
+	(save-excursion
+	  (if (re-search-forward "^[ \t]*[^:]" nil 'move)
+	      (setq end (match-beginning 0))
+	    (setq end (point))))
+	(goto-line line)
+	(if (get-buffer "*Org Edit Picture*")
+	    (kill-buffer "*Org Edit Picture*"))
+	(switch-to-buffer (make-indirect-buffer (current-buffer)
+						"*Org Edit Picture*"))
+	(narrow-to-region beg end)
+	(remove-text-properties beg end '(display nil invisible nil
+						  intangible nil))
+	(when (fboundp 'font-lock-unfontify-region)
+	  (font-lock-unfontify-region (point-min) (point-max)))
+	(cond
+	 ((eq org-edit-fixed-width-region-mode 'artist-mode)
+	  (fundamental-mode)
+	  (artist-mode 1))
+	 (t (funcall org-edit-fixed-width-region-mode)))
+	(set (make-local-variable 'org-edit-src-force-single-line) nil)
+	(set (make-local-variable 'org-edit-src-from-org-mode) org-mode-p)
+	(set (make-local-variable 'org-edit-src-picture) t)
+	(goto-char (point-min))
+	(while (re-search-forward "^[ \t]*: " nil t)
+	  (replace-match ""))
+	(goto-line line)
+	(org-exit-edit-mode)
+	(org-set-local 'header-line-format msg)
+	(message "%s" msg)
+	t))))
 
 (defun org-edit-src-find-region-and-lang ()
   "Find the region and language for a local edit.
@@ -5510,6 +5595,13 @@ the language, a switch telling of the content should be in a single line."
     (goto-char (point-min))
     (while (re-search-forward (if (org-mode-p) "^\\(.\\)" "^\\([*#]\\)") nil t)
       (replace-match ",\\1"))
+    (when font-lock-mode
+      (font-lock-unfontify-region (point-min) (point-max)))
+    (put-text-property (point-min) (point-max) 'font-lock-fontified t))
+  (when (org-bound-and-true-p org-edit-src-picture)
+    (goto-char (point-min))
+    (while (re-search-forward "^" nil t)
+      (replace-match ": "))
     (when font-lock-mode
       (font-lock-unfontify-region (point-min) (point-max)))
     (put-text-property (point-min) (point-max) 'font-lock-fontified t))
@@ -6042,7 +6134,7 @@ with something like \"1.\" or \"2)\"."
 	      (buffer-substring (point-at-bol) (match-beginning 3))))
 	;; (term (substring (match-string 3) -1))
 	ind1 (n (1- arg))
-	fmt bob)
+	fmt bobp)
     ;; find where this list begins
     (org-beginning-of-item-list)
     (setq bobp (bobp))
@@ -6383,14 +6475,15 @@ to execute outside of tables."
 				   '('orgstruct-error))))))))
 
 (defun org-context-p (&rest contexts)
-  "Check if local context is and of CONTEXTS.
+  "Check if local context is any of CONTEXTS.
 Possible values in the list of contexts are `table', `headline', and `item'."
   (let ((pos (point)))
     (goto-char (point-at-bol))
     (prog1 (or (and (memq 'table contexts)
 		    (looking-at "[ \t]*|"))
 	       (and (memq 'headline contexts)
-		    (looking-at "\\*+"))
+;;?????????		    (looking-at "\\*+"))
+		    (looking-at outline-regexp))
 	       (and (memq 'item contexts)
 		    (looking-at "[ \t]*\\([-+*] \\|[0-9]+[.)] \\)")))
       (goto-char pos))))
@@ -7031,7 +7124,7 @@ used as the link location instead of reading one interactively."
 
 (defun org-extract-attributes (s)
   "Extract the attributes cookie from a string and set as text property."
-  (let (a attr (start 0))
+  (let (a attr (start 0) key value)
     (save-match-data
       (when (string-match "{{\\([^}]+\\)}}$" s)
 	(setq a (match-string 1 s) s (substring s 0 (match-beginning 0)))
@@ -7788,7 +7881,7 @@ first of the last subitem.
 
 With prefix arg GOTO, the command will only visit the target location,
 not actually move anything.
-With a double prefix `C-c C-c', go to the location where the last refiling
+With a double prefix `C-u C-u', go to the location where the last refiling
 operation has put the subtree."
   (interactive "P")
   (let* ((cbuf (current-buffer))
@@ -8016,7 +8109,10 @@ This function can be used in a hook."
 (defconst org-additional-option-like-keywords
   '("BEGIN_HTML" "BEGIN_LaTeX" "END_HTML" "END_LaTeX"
     "ORGTBL" "HTML:" "LaTeX:" "BEGIN:" "END:" "TBLFM"
-    "BEGIN_EXAMPLE" "END_EXAMPLE"))
+    "BEGIN_EXAMPLE" "END_EXAMPLE"
+    "BEGIN_QUOTE" "END_QUOTE"
+    "BEGIN_VERSE" "END_VERSE"
+    "BEGIN_SRC" "END_SRC"))
 
 (defcustom org-structure-template-alist
   '(
@@ -8651,6 +8747,7 @@ Returns the new TODO keyword, or nil if no state change should occur."
 (defvar org-log-post-message)
 (defvar org-log-note-purpose)
 (defvar org-log-note-how)
+(defvar org-log-note-extra)
 (defun org-auto-repeat-maybe (done-word)
   "Check if the current headline contains a repeated deadline/schedule.
 If yes, set TODO state back to what it was and change the base date
@@ -8889,6 +8986,7 @@ be removed."
 (defvar org-log-note-purpose nil)
 (defvar org-log-note-state nil)
 (defvar org-log-note-how nil)
+(defvar org-log-note-extra nil)
 (defvar org-log-note-window-configuration nil)
 (defvar org-log-note-return-to (make-marker))
 (defvar org-log-post-message nil
@@ -8901,11 +8999,13 @@ This is done in the same way as adding a state change note."
   (interactive)
   (org-add-log-setup 'note nil t nil))
 
-(defun org-add-log-setup (&optional purpose state findpos how)
+(defun org-add-log-setup (&optional purpose state findpos how extra)
   "Set up the post command hook to take a note.
 If this is about to TODO state change, the new state is expected in STATE.
 When FINDPOS is non-nil, find the correct position for the note in
-the current entry.  If not, assume that it can be inserted at point."
+the current entry.  If not, assume that it can be inserted at point.
+HOW is an indicator what kind of note should be created.
+EXTRA is additional text that will be inserted into the notes buffer."
   (save-excursion
     (when findpos
       (org-back-to-heading t)
@@ -8920,7 +9020,8 @@ the current entry.  If not, assume that it can be inserted at point."
     (move-marker org-log-note-marker (point))
     (setq org-log-note-purpose purpose
 	  org-log-note-state state
-	  org-log-note-how how)
+	  org-log-note-how how
+	  org-log-note-extra extra)
     (add-hook 'post-command-hook 'org-add-log-note 'append)))
 
 (defun org-skip-over-state-notes ()
@@ -8954,6 +9055,7 @@ the current entry.  If not, assume that it can be inserted at point."
 		     ((eq org-log-note-purpose 'note)
 		      "this entry")
 		     (t (error "This should not happen")))))
+    (if org-log-note-extra (insert org-log-note-extra))
     (org-set-local 'org-finish-function 'org-store-log-note)))
 
 (defvar org-note-abort nil) ; dynamically scoped
@@ -9435,7 +9537,7 @@ also TODO lines."
 	(re (org-re "^&?\\([-+:]\\)?\\({[^}]+}\\|LEVEL\\([<=>]\\{1,2\\}\\)\\([0-9]+\\)\\|\\([[:alnum:]_]+\\)\\([<>=]\\{1,2\\}\\)\\({[^}]+}\\|\"[^\"]*\"\\|-?[.0-9]+\\(?:[eE][-+]?[0-9]+\\)?\\)\\|[[:alnum:]_@]+\\)"))
 	minus tag mm
 	tagsmatch todomatch tagsmatcher todomatcher kwd matcher
-	orterms term orlist re-p str-p level-p level-op
+	orterms term orlist re-p str-p level-p level-op time-p
 	prop-p pn pv po cat-p gv)
     (if (string-match "/+" match)
 	;; match contains also a todo-matching request
@@ -12139,6 +12241,11 @@ When a buffer is unmodified, it is just killed.  When modified, it is saved
 		(append org-todo-keywords-for-agenda org-todo-keywords-1))
 	  (setq org-done-keywords-for-agenda
 		(append org-done-keywords-for-agenda org-done-keywords))
+	  (setq org-todo-keyword-alist-for-agenda
+		(append org-todo-keyword-alist-for-agenda org-todo-key-alist))
+	  (setq org-tag-alist-for-agenda 
+		(append org-tag-alist-for-agenda org-tag-alist))
+
 	  (save-excursion
 	    (remove-text-properties (point-min) (point-max) pall)
 	    (when org-agenda-skip-archived-trees
@@ -12151,7 +12258,10 @@ When a buffer is unmodified, it is just killed.  When modified, it is saved
 	    (while (re-search-forward re nil t)
 	      (add-text-properties
 	       (match-beginning 0) (org-end-of-subtree t) pc)))
-	  (set-buffer-modified-p bmp))))))
+	  (set-buffer-modified-p bmp))))
+    (setq org-todo-keyword-alist-for-agenda
+	  (org-uniquify org-todo-keyword-alist-for-agenda)
+	  org-tag-alist-for-agenda (org-uniquify org-tag-alist-for-agenda))))
 
 ;;;; Embedded LaTeX
 
@@ -12501,7 +12611,8 @@ The images can be removed again with \\[org-ctrl-c-ctrl-c]."
 ;;  We only set them when really needed because otherwise the
 ;;  menus don't show the simple keys
 
-(when (or (featurep 'xemacs)   ;; because XEmacs supports multi-device stuff
+(when (or org-use-extra-keys
+	  (featurep 'xemacs)   ;; because XEmacs supports multi-device stuff
 	  (not window-system))
   (org-defkey org-mode-map "\C-c\C-xc"    'org-table-copy-down)
   (org-defkey org-mode-map "\C-c\C-xM"    'org-insert-todo-heading)
@@ -12965,6 +13076,7 @@ When in an #+include line, visit the include file.  Otherwise call
       (looking-at "\\(?:#\\+\\(?:setupfile\\|include\\):?[ \t]+\"?\\|[ \t]*<include\\>.*?file=\"\\)\\([^\"\n>]+\\)"))
     (find-file (org-trim (match-string 1))))
    ((org-edit-src-code))
+   ((org-edit-fixed-width-region))
    (t (call-interactively 'ffap))))
 
 (defun org-ctrl-c-ctrl-c (&optional arg)
@@ -13037,7 +13149,7 @@ This command does many different things, depending on context:
      ((save-excursion (beginning-of-line 1) (looking-at "#\\+BEGIN:"))
       ;; Dynamic block
       (beginning-of-line 1)
-      (org-update-dblock))
+      (save-excursion (org-update-dblock)))
      ((save-excursion (beginning-of-line 1) (looking-at "#\\+\\([A-Z]+\\)"))
       (cond
        ((equal (match-string 1) "TBLFM")
@@ -13523,7 +13635,7 @@ With optional NODE, go directly to that node."
       (sit-for 0))))
 
 (defun org-goto-marker-or-bmk (marker &optional bookmark)
-  "Go to MARKER, widen if necesary.  When marker is not live, try BOOKMARK."
+  "Go to MARKER, widen if necessary.  When marker is not live, try BOOKMARK."
   (if (and marker (marker-buffer marker)
 	   (buffer-live-p (marker-buffer marker)))
       (progn
