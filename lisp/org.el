@@ -10008,7 +10008,7 @@ the scanner.  The following items can be given here:
     (cond
      ((eq match t)   (setq matcher t))
      ((eq match nil) (setq matcher t))
-     (t (setq matcher (if match (org-make-tags-matcher match) t))))
+     (t (setq matcher (cdr (org-make-tags-matcher match)))))
     
     (when (eq scope 'tree)
       (org-back-to-heading t)
