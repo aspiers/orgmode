@@ -10150,10 +10150,12 @@ Returns the new tags string, or nil to not change the current settings."
 (defun org-map-entries (func &optional match scope &rest skip)
   "Call FUNC at each headline selected by MATCH in SCOPE.
 
-FUNC is a function or a lisp form.  The function will be called without
-arguments, with the cursor positioned at the beginning of the headline.
-The return values of all calls to the function will be collected and
-returned as a list.
+FUNC is a function or a lisp form.  The function will be called
+without arguments, with the cursor positioned at the beginning of the
+headline.  The return values of all calls to the function will be
+collected and returned as a list, although if several files are
+iterated over, a list of sub-lists will be returned: one sub-list of
+results for each file.
 
 MATCH is a tags/property/todo match as it is used in the agenda tags view.
 Only headlines that are matched by this query will be considered during
@@ -10194,7 +10196,7 @@ the scanner.  The following items can be given here:
     (cond
      ((eq match t)   (setq matcher t))
      ((eq match nil) (setq matcher t))
-     (t (setq matcher (if match (org-make-tags-matcher match) t))))
+     (t (setq matcher (cdr (org-make-tags-matcher match)))))
     
     (when (eq scope 'tree)
       (org-back-to-heading t)
@@ -10221,13 +10223,13 @@ the scanner.  The following items can be given here:
        ((eq scope 'file-with-archives)
 	(setq scope (org-add-archive-files (list (buffer-file-name))))))
       (org-prepare-agenda-buffers scope)
-      (while (setq file (pop scope))
-	(with-current-buffer (org-find-base-buffer-visiting file)
-	  (save-excursion
-	    (save-restriction
-	      (widen)
-	      (goto-char (point-min))
-	      (org-scan-tags func matcher))))))))
+      (mapcar (lambda (file)
+                (with-current-buffer (org-find-base-buffer-visiting file)
+                  (save-excursion
+                    (save-restriction
+                      (widen)
+                      (goto-char (point-min))
+                      (org-scan-tags func matcher))))) scope))))
 
 ;;;; Properties
 

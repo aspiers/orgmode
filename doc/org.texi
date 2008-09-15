@@ -9403,10 +9403,14 @@ function or Lisp form
 @end defun
 
 The function given to that mapping routine can really do anything you like.
-It can uce the property API (@pxref{Using the property API}) to gather more
-information about the entry, or in order to change metadate in the entry.
-Here are a couple of functions that might be handy:
- 
+It can use the property API (@pxref{Using the property API}) to gather more
+information about the entry, or in order to change meta-data in the entry.
+Here are some functions which might be handy:
+
+@defun org-get-heading &optional no-tags
+Return the heading of the current entry, without the stars.
+@end defun
+
 @defun org-todo &optional arg
 Change the TODO state of the entry, see the docstring of the functions for
 the many possible values for the argument ARG.
@@ -9444,7 +9448,7 @@ The following example counts the number of entries with TODO keyword
 @code{WAITING}, in all agenda files.
 
 @lisp
-(length (org-map-entries t "/+WAITING" nil 'agenda))
+(length (org-map-entries t "/+WAITING" 'agenda))
 @end lisp
 
 @node History and Acknowledgments, Main Index, Hacking, Top
