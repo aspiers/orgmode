@@ -9383,8 +9383,9 @@ only lines with a TODO keyword are included in the output."
 	 (tags-alist (list (cons 0 (mapcar 'downcase org-file-tags))))
 	 (llast 0) rtn rtn1 level category i txt
 	 todo marker entry priority)
-    (when (not (member action '(agenda sparse-tree)))
-      (setq action (list 'lambda nil action)))
+;; FIXME: what's the point of this?
+;;     (when (not (member action '(agenda sparse-tree)))
+;;       (setq action (list 'lambda nil action)))
     (save-excursion
       (goto-char (point-min))
       (when (eq action 'sparse-tree)
