@@ -4178,6 +4178,7 @@ If it is less than 8, the level-1 face gets re-used for level N+1 etc."
 (declare-function speedbar-line-directory "speedbar" (&optional depth))
 
 (defvar org-latex-regexps)
+(defvar org-latex-entities)
 (defvar constants-unit-system)
 
 ;;; Variables for pre-computed regular expressions, all buffer local
