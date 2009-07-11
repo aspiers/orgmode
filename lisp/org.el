@@ -7112,12 +7112,13 @@ For file links, arg negates `org-context-in-file-links'."
       (setq org-store-link-plist
 	    (plist-put org-store-link-plist key value)))))
 
-(defun org-email-link-description (&optional fmt)
+(defun org-email-link-description (&optional fmt plist)
   "Return the description part of an email link.
-This takes information from `org-store-link-plist' and formats it
-according to FMT (default from `org-email-link-description-format')."
+This takes information from `org-store-link-plist' (or PLIST if
+provided), and formats it according to FMT (default from
+`org-email-link-description-format')."
   (setq fmt (or fmt org-email-link-description-format))
-  (let* ((p org-store-link-plist)
+  (let* ((p (or plist org-store-link-plist))
 	 (to (plist-get p :toaddress))
 	 (from (plist-get p :fromaddress))
 	 (table
