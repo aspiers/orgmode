@@ -623,7 +623,7 @@ the safe choice."
   :group 'org-plain-lists
   :type '(choice (const :tag "dot like in \"2.\"" ?.)
 		 (const :tag "paren like in \"2)\"" ?\))
-		 (const :tab "both" t)))
+		 (const :tag "both" t)))
 
 (defcustom org-auto-renumber-ordered-lists t
   "Non-nil means, automatically renumber ordered plain lists.
@@ -4588,7 +4588,7 @@ Respect keys that are already there."
 	(push (cons k c) new))))
     (nreverse new)))
 
-;;; Some variables ujsed in various places
+;;; Some variables used in various places
 
 (defvar org-window-configuration nil
   "Used in various places to store a window configuration.")
@@ -13168,7 +13168,7 @@ on the system \"/user@host:\"."
 
 ;;;###autoload
 (defun org-remember-insinuate ()
-  "Setup remember.el for use wiht Org-mode."
+  "Setup remember.el for use with Org-mode."
   (require 'remember)
   (setq remember-annotation-functions '(org-remember-annotation))
   (setq remember-handler-functions '(org-remember-handler))
@@ -27693,4 +27693,3 @@ Still experimental, may disappear in the future."
 
 ;; arch-tag: e77da1a7-acc7-4336-b19e-efa25af3f9fd
 ;;; org.el ends here
-
