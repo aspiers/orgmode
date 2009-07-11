@@ -11351,6 +11351,11 @@ POM may also be nil, in which case the current entry is used.
 If WHICH is nil or `all', get all properties.  If WHICH is
 `special' or `standard', only get that subclass.
 @end defun
+
+@defun org-no-properties string
+Return the string with all text properties removed.
+@end defun
+
 @vindex org-use-property-inheritance
 @defun org-entry-get pom property &optional inherit
 Get value of PROPERTY for entry at point-or-marker POM.  By default,
