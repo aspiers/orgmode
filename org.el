@@ -2705,7 +2705,7 @@ contents, with a context symbol in the car of the list, any of
 `agenda', `todo', `tags' for the corresponding agenda views."
   :group 'org-agenda-sorting
   :type `(choice
-	  (repeat :tag "General" org-sorting-choice)
+	  (repeat :tag "General" ,org-sorting-choice)
 	  (list :tag "Individually"
 		(cons (const :tag "Strategy for Weekly/Daily agenda" agenda)
 		      (repeat ,org-sorting-choice))
