@@ -109,7 +109,7 @@ the safe choice."
   :group 'org-plain-lists
   :type '(choice (const :tag "dot like in \"2.\"" ?.)
 		 (const :tag "paren like in \"2)\"" ?\))
-		 (const :tab "both" t)))
+		 (const :tag "both" t)))
 
 (defcustom org-list-two-spaces-after-bullet-regexp nil
   "A regular expression matching bullets that should have 2 spaces after them.
