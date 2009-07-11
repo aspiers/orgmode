@@ -20453,8 +20453,8 @@ notdeadline   Check if there is no deadline
 regexp        Check if regexp matches
 notregexp     Check if regexp does not match.
 
-The regexp is taken from the conditions list, it must com right after the
-`regexp' of `notregexp' element.
+The regexp is taken from the conditions list, it must come right after the
+`regexp' or `notregexp' element.
 
 If any of these conditions is met, this function returns the end point of
 the entity, causing the search to continue from there.  This is a function
