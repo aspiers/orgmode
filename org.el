@@ -19170,7 +19170,10 @@ Pressing `<' twice means to restrict to the current subtree or region
 		(org-let lprops '(funcall type match)))
 	       (t (error "Invalid custom agenda command type %s" type))))
 	  (org-run-agenda-series (nth 1 entry) (cddr entry))))
-       ((equal keys "C") (customize-variable 'org-agenda-custom-commands))
+       ((equal keys "C")
+        (let ((org-agenda-custom-commands
+               (append prefix-descriptions org-agenda-custom-commands)))
+          (customize-variable 'org-agenda-custom-commands)))
        ((equal keys "a") (call-interactively 'org-agenda-list))
        ((equal keys "t") (call-interactively 'org-todo-list))
        ((equal keys "T") (org-call-with-arg 'org-todo-list (or arg '(4))))
