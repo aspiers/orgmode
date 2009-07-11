@@ -19340,6 +19340,14 @@ L   Timeline for current buffer         #   List stuck projects (!=configure)
 	    (setq restriction nil))
 	   ((and (equal selstring "") (memq c '(?a ?t ?m ?L ?C ?e ?T ?M ?# ?! ?/)))
 	    (throw 'exit (cons (setq selstring (char-to-string c)) restriction)))
+           ((and (> (length selstring) 0) (eq c ?\d))
+            (delete-window)
+            (org-agenda-get-restriction-and-command prefix-descriptions))
+;; Can't do it this way because help text describing hardcoded agenda
+;; commands is inserted into buffer outside the (while t ...) loop.
+;;             (setq selstring ""
+;;                   rmheader 0
+;;                   custom org-agenda-custom-commands))
 	   ((equal c ?q) (error "Abort"))
 	   (t (error "Invalid key %c" c))))))))
 
