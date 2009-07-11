@@ -297,7 +297,7 @@ Text interpretation by the exporter
 * Comment lines::               Some lines will not be exported
 * Initial text::                Text before the first headline
 * Footnotes::                   Numbers like [1]
-* Quoted examples::             Inserting quoted chnuks of text            
+* Quoted examples::             Inserting quoted chunks of text            
 * Enhancing text::              Subscripts, symbols and more
 * Export options::              How to influence the export settings
 
@@ -6523,7 +6523,7 @@ in order to produce better output.
 * Comment lines::               Some lines will not be exported
 * Initial text::                Text before the first headline
 * Footnotes::                   Numbers like [1]
-* Quoted examples::             Inserting quoted chnuks of text            
+* Quoted examples::             Inserting quoted chunks of text            
 * Enhancing text::              Subscripts, symbols and more
 * Export options::              How to influence the export settings
 @end menu
