@@ -13385,7 +13385,7 @@ to be run from that hook to function properly."
 				   (member char '("u" "U"))
 				   nil nil (list org-end-time-was-given)))
 	   (t
-	    (insert (completing-read
+	    (insert (org-completing-read
 		     (concat (if prompt prompt "Enter string")
 			     (if default (concat " [" default "]"))
 			     ": ")
