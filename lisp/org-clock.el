@@ -192,6 +192,20 @@ auto     Automtically, either `all', or `repeat' for repeating tasks"
 	  (const :tag "All task time" all)
 	  (const :tag "Automatically, `all' or since `repeat'" auto)))
 
+(defcustom org-show-notification-handler nil
+  "Function or program to send notification with.
+The function or program will be called with the notification
+string as argument."
+  :group 'org-clock
+  :type '(choice
+	  (string :tag "Program")
+	  (function :tag "Function")))
+
+(defvar org-clock-in-prepare-hook nil
+  "Hook run when preparing the clock.
+This hook is run before anything happens to the task that
+you want to clock in.  For example, you can use this hook
+to add an effort property.")
 (defvar org-clock-in-hook nil
   "Hook run when starting the clock.")
 (defvar org-clock-out-hook nil
@@ -436,10 +450,17 @@ Notification is shown only once."
 
 (defun org-show-notification (notification)
   "Show notification. Use libnotify, if available."
-  (if (org-program-exists "notify-send")
-      (start-process "emacs-timer-notification" nil "notify-send" notification))
-  ;; In any case, show in message area
-  (message notification))
+  (cond ((functionp org-show-notification-handler)
+	 (funcall org-show-notification-handler notification))
+	((stringp org-show-notification-handler)
+	 (start-process "emacs-timer-notification" nil 
+			org-show-notification-handler notification))
+	((org-program-exists "notify-send")
+	 (start-process "emacs-timer-notification" nil 
+			"notify-send" notification))
+	;; Maybe the handler will send a message, so only use message as
+	;; a fall back option
+	(t (message notification))))
 
 (defun org-clock-play-sound ()
   "Play sound as configured by `org-clock-sound'.
@@ -496,6 +517,7 @@ the clocking selection, associated with the letter `d'."
 	(org-clock-mark-default-task))
 
       (setq target-pos (point))  ;; we want to clock in at this location
+      (run-hooks 'org-clock-in-prepare-hook)
       (save-excursion
 	(when (and selected-task (marker-buffer selected-task))
 	  ;; There is a selected task, move to the correct buffer
@@ -1170,11 +1192,12 @@ the currently selected interval size."
 	   (maxlevel (or (plist-get params :maxlevel) 3))
 	   (step (plist-get params :step))
 	   (emph (plist-get params :emphasize))
+	   (timestamp (plist-get params :timestamp))
 	   (ts (plist-get params :tstart))
 	   (te (plist-get params :tend))
 	   (block (plist-get params :block))
 	   (link (plist-get params :link))
-	   ipos time p level hlc hdl content recalc formula pcol
+	   ipos time p level hlc hdl tsp props content recalc formula pcol
 	   cc beg end pos tbl tbl1 range-text rm-file-column scope-is-list st)
       (setq org-clock-file-total-minutes nil)
       (when step
@@ -1279,10 +1302,18 @@ the currently selected interval size."
 				       (save-match-data
 					 (org-make-org-heading-search-string
 					  (match-string 2))))
-			       (match-string 2))))
+			       (match-string 2)))
+			tsp (when timestamp
+			      (setq props (org-entry-properties (point)))
+			      (or (cdr (assoc "SCHEDULED" props))
+				  (cdr (assoc "TIMESTAMP" props))
+				  (cdr (assoc "DEADLINE" props))
+				  (cdr (assoc "TIMESTAMP_IA" props)))))
 		  (if (and (not multifile) (= level 1)) (push "|-" tbl))
 		  (push (concat
-			 "| " (int-to-string level) "|" hlc hdl hlc " |"
+			 "| " (int-to-string level) "|" 
+			 (if timestamp (concat tsp "|") "") 
+			 hlc hdl hlc " |"
 			 (make-string (1- level) ?|)
 			 hlc (org-minutes-to-hh:mm-string time) hlc
 			 " |") tbl))))))
@@ -1301,12 +1332,12 @@ the currently selected interval size."
 		(if block (concat ", for " range-text ".") "")
 		"\n\n"))
 	   (if scope-is-list "|File" "")
-	   "|L|Headline|Time|\n")
+	   "|L|" (if timestamp "Timestamp|" "") "Headline|Time|\n")
 	  (setq total-time (or total-time org-clock-file-total-minutes))
 	  (insert-before-markers
 	   "|-\n|"
 	   (if scope-is-list "|" "")
-	   "|"
+	   (if timestamp "|Timestamp|" "|")
 	   "*Total time*| *"
 	   (org-minutes-to-hh:mm-string (or total-time 0))
 	   "*|\n|-\n")
