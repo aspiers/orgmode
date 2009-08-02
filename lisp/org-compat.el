@@ -1,11 +1,12 @@
 ;;; org-compat.el --- Compatibility code for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.05
+;; Version: 6.28trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -30,6 +31,13 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'cl))
+
+(require 'org-macs)
+
+(declare-function find-library-name             "find-func"  (library))
+
 (defconst org-xemacs-p (featurep 'xemacs)) ; not used by org.el itself
 (defconst org-format-transports-properties-p
   (let ((x "a"))
@@ -40,17 +48,25 @@
 (defun org-compatible-face (inherits specs)
   "Make a compatible face specification.
 If INHERITS is an existing face and if the Emacs version supports it,
-just inherit the face.  If not, use SPECS to define the face.
+just inherit the face.  If INHERITS is set and the Emacs version does
+not support it, copy the face specification from the inheritance face.
+If INHERITS is not given and SPECS is, use SPECS to define the face.
 XEmacs and Emacs 21 do not know about the `min-colors' attribute.
 For them we convert a (min-colors 8) entry to a `tty' entry and move it
 to the top of the list.  The `min-colors' attribute will be removed from
 any other entries, and any resulting duplicates will be removed entirely."
+  (when (and inherits (facep inherits) (not specs))
+    (setq specs (or specs
+		    (get inherits 'saved-face)
+		    (get inherits 'face-defface-spec))))
   (cond
    ((and inherits (facep inherits)
-	 (not (featurep 'xemacs)) (> emacs-major-version 22))
-    ;; In Emacs 23, we use inheritance where possible.
-    ;; We only do this in Emacs 23, because only there the outline
-    ;; faces have been changed to the original org-mode-level-faces.
+	 (not (featurep 'xemacs))
+	 (>= emacs-major-version 22)
+	 ;; do not inherit outline faces before Emacs 23
+	 (or (>= emacs-major-version 23)
+	     (not (string-match "\\`outline-[0-9]+"
+				(symbol-name inherits)))))
     (list (list t :inherit inherits)))
    ((or (featurep 'xemacs) (< emacs-major-version 22))
     ;; These do not understand the `min-colors' attribute.
@@ -148,6 +164,24 @@ that will be added to PLIST.  Returns the string that was modified."
   string)
 (put 'org-add-props 'lisp-indent-function 2)
 
+(defun org-fit-window-to-buffer (&optional window max-height min-height
+					   shrink-only)
+  "Fit WINDOW to the buffer, but only if it is not a side-by-side window.
+WINDOW defaults to the selected window.  MAX-HEIGHT and MIN-HEIGHT are
+passed through to `fit-window-to-buffer'.  If SHRINK-ONLY is set, call
+`shrink-window-if-larger-than-buffer' instead, the hight limit are
+ignored in this case."
+  (cond ((if (fboundp 'window-full-width-p)
+	     (not (window-full-width-p window))
+	   (> (frame-width) (window-width window)))
+	 ;; do nothing if another window would suffer
+	 )
+	((and (fboundp 'fit-window-to-buffer) (not shrink-only))
+	 (fit-window-to-buffer window max-height min-height))
+	((fboundp 'shrink-window-if-larger-than-buffer)
+	 (shrink-window-if-larger-than-buffer window)))
+  (or window (selected-window)))
+
 ;; Region compatibility
 
 (defvar org-ignore-region nil
@@ -164,6 +198,11 @@ Works on both Emacs and XEmacs."
 	  (use-region-p)
 	(and transient-mark-mode mark-active))))) ; Emacs 22 and before
 
+(defun org-cursor-to-region-beginning ()
+  (when (and (org-region-active-p)
+	     (> (point) (region-beginning)))
+    (exchange-point-and-mark)))
+
 ;; Invisibility compatibility
 
 (defun org-add-to-invisibility-spec (arg)
@@ -174,7 +213,7 @@ that can be added."
    ((fboundp 'add-to-invisibility-spec)
     (add-to-invisibility-spec arg))
    ((or (null buffer-invisibility-spec) (eq buffer-invisibility-spec t))
-	(setq buffer-invisibility-spec (list arg)))
+    (setq buffer-invisibility-spec (list arg)))
    (t
     (setq buffer-invisibility-spec
 	  (cons arg buffer-invisibility-spec)))))
@@ -195,57 +234,99 @@ that can be added."
 
 (defun org-indent-to-column (column &optional minimum buffer)
   "Work around a bug with extents with invisibility in XEmacs."
- (if (featurep 'xemacs)
-     (let ((ext-inv (extent-list
-                     nil (point-at-bol) (point-at-eol)
-                     'all-extents-closed-open 'invisible))
-           ext-inv-specs)
-       (dolist (ext ext-inv)
-         (when (extent-property ext 'invisible)
-           (add-to-list 'ext-inv-specs (list ext (extent-property
-						  ext 'invisible)))
-           (set-extent-property ext 'invisible nil)))
-       (indent-to-column column minimum buffer)
-       (dolist (ext-inv-spec ext-inv-specs)
-         (set-extent-property (car ext-inv-spec) 'invisible
-			      (cadr ext-inv-spec))))
-   (indent-to-column column minimum)))
+  (if (featurep 'xemacs)
+      (let ((ext-inv (extent-list
+		      nil (point-at-bol) (point-at-eol)
+		      'all-extents-closed-open 'invisible))
+	    ext-inv-specs)
+	(dolist (ext ext-inv)
+	  (when (extent-property ext 'invisible)
+	    (add-to-list 'ext-inv-specs (list ext (extent-property
+						   ext 'invisible)))
+	    (set-extent-property ext 'invisible nil)))
+	(indent-to-column column minimum buffer)
+	(dolist (ext-inv-spec ext-inv-specs)
+	  (set-extent-property (car ext-inv-spec) 'invisible
+			       (cadr ext-inv-spec))))
+    (indent-to-column column minimum)))
 
 (defun org-indent-line-to (column)
   "Work around a bug with extents with invisibility in XEmacs."
- (if (featurep 'xemacs)
-     (let ((ext-inv (extent-list
-                     nil (point-at-bol) (point-at-eol)
-                     'all-extents-closed-open 'invisible))
-           ext-inv-specs)
-       (dolist (ext ext-inv)
-         (when (extent-property ext 'invisible)
-           (add-to-list 'ext-inv-specs (list ext (extent-property
-						  ext 'invisible)))
-           (set-extent-property ext 'invisible nil)))
-       (indent-line-to column)
-       (dolist (ext-inv-spec ext-inv-specs)
-         (set-extent-property (car ext-inv-spec) 'invisible
-			      (cadr ext-inv-spec))))
-   (indent-line-to column)))
+  (if (featurep 'xemacs)
+      (let ((ext-inv (extent-list
+		      nil (point-at-bol) (point-at-eol)
+		      'all-extents-closed-open 'invisible))
+	    ext-inv-specs)
+	(dolist (ext ext-inv)
+	  (when (extent-property ext 'invisible)
+	    (add-to-list 'ext-inv-specs (list ext (extent-property
+						   ext 'invisible)))
+	    (set-extent-property ext 'invisible nil)))
+	(indent-line-to column)
+	(dolist (ext-inv-spec ext-inv-specs)
+	  (set-extent-property (car ext-inv-spec) 'invisible
+			       (cadr ext-inv-spec))))
+    (indent-line-to column)))
 
 (defun org-move-to-column (column &optional force buffer)
- (if (featurep 'xemacs)
-     (let ((ext-inv (extent-list
-                     nil (point-at-bol) (point-at-eol)
-                     'all-extents-closed-open 'invisible))
-           ext-inv-specs)
-       (dolist (ext ext-inv)
-         (when (extent-property ext 'invisible)
-           (add-to-list 'ext-inv-specs (list ext (extent-property ext
-								  'invisible)))
-           (set-extent-property ext 'invisible nil)))
-       (move-to-column column force buffer)
-       (dolist (ext-inv-spec ext-inv-specs)
-         (set-extent-property (car ext-inv-spec) 'invisible
-			      (cadr ext-inv-spec))))
-   (move-to-column column force)))
- 
+  (if (featurep 'xemacs)
+      (let ((ext-inv (extent-list
+		      nil (point-at-bol) (point-at-eol)
+		      'all-extents-closed-open 'invisible))
+	    ext-inv-specs)
+	(dolist (ext ext-inv)
+	  (when (extent-property ext 'invisible)
+	    (add-to-list 'ext-inv-specs (list ext (extent-property ext
+								   'invisible)))
+	    (set-extent-property ext 'invisible nil)))
+	(move-to-column column force buffer)
+	(dolist (ext-inv-spec ext-inv-specs)
+	  (set-extent-property (car ext-inv-spec) 'invisible
+			       (cadr ext-inv-spec))))
+    (move-to-column column force)))
+
+(defun org-get-x-clipboard-compat (value)
+  "Get the clipboard value on XEmacs or Emacs 21"
+  (cond (org-xemacs-p (org-no-warnings (get-selection-no-error value)))
+	((fboundp 'x-get-selection)
+	 (condition-case nil
+	     (or (x-get-selection value 'UTF8_STRING)
+		 (x-get-selection value 'COMPOUND_TEXT)
+		 (x-get-selection value 'STRING)
+		 (x-get-selection value 'TEXT))
+	   (error nil)))))
+
+(defun org-propertize (string &rest properties)
+  (if (featurep 'xemacs)
+      (progn
+	(add-text-properties 0 (length string) properties string)
+	string)
+    (apply 'propertize string properties)))
+
+(defun org-substring-no-properties (string &optional from to)
+  (if (featurep 'xemacs)
+      (org-no-properties (substring string (or from 0) to))
+    (substring-no-properties string from to)))
+
+(defun org-find-library-name (library)
+  (if (fboundp 'find-library-name)
+      (file-name-directory (find-library-name library))
+    ; XEmacs does not have `find-library-name'
+    (flet ((find-library-name-helper (filename ignored-codesys)
+				     filename)
+	   (find-library-name (library)
+	    (find-library library nil 'find-library-name-helper)))
+      (file-name-directory (find-library-name library)))))
+
+(defun org-count-lines (s)
+  "How many lines in string S?"
+  (let ((start 0) (n 1))
+    (while (string-match "\n" s start)
+      (setq start (match-end 0) n (1+ n)))
+    (if (and (> (length s) 0) (= (aref s (1- (length s))) ?\n))
+	(setq n (1- n)))
+    n))
+
 (provide 'org-compat)
 
 ;; arch-tag: a0a0579f-e68c-4bdf-9e55-93768b846bbe

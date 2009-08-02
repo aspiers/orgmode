@@ -1,11 +1,12 @@
 ;;; org-archive.el --- Archiving for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.05
+;; Version: 6.28trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -25,7 +26,7 @@
 ;;
 ;;; Commentary:
 
-;; This file contains the face definitons for Org.
+;; This file contains the face definitions for Org.
 
 ;;; Code:
 
@@ -102,18 +103,19 @@ information."
 	 (t org-archive-location (match-string 1)))))))
 
 (defun org-add-archive-files (files)
-  "Splice the archive files into the list f files.
+  "Splice the archive files into the list of files.
 This implies visiting all these files and finding out what the
 archive file is."
-  (apply
-   'append
-   (mapcar
-    (lambda (f)
-      (if (not (file-exists-p f))
-	  nil
-	(with-current-buffer (org-get-agenda-file-buffer f)
-	  (cons f (org-all-archive-files)))))
-    files)))
+  (org-uniquify
+   (apply
+    'append
+    (mapcar
+     (lambda (f)
+       (if (not (file-exists-p f))
+	   nil
+	 (with-current-buffer (org-get-agenda-file-buffer f)
+	   (cons f (org-all-archive-files)))))
+     files))))
 
 (defun org-all-archive-files ()
   "Get a list of all archive files used in the current buffer."
@@ -150,7 +152,8 @@ if LOCATION is not given, the value of `org-archive-location' is used."
 if LOCATION is not given, the value of `org-archive-location' is used."
   (setq location (or location org-archive-location))
   (if (string-match "\\(.*\\)::\\(.*\\)" location)
-      (match-string 2 location)))
+      (format (match-string 2 location)
+	      (file-name-nondirectory buffer-file-name))))
 
 (defun org-archive-subtree (&optional find-done)
   "Move the current subtree to the archive.
@@ -160,7 +163,7 @@ heading be marked DONE, and the current time will be added.
 
 When called with prefix argument FIND-DONE, find whole trees without any
 open TODO items and archive them (after getting confirmation from the user).
-If the cursor is not at a headline when this comand is called, try all level
+If the cursor is not at a headline when this command is called, try all level
 1 trees.  If the cursor is on a headline, only try the direct children of
 this heading."
   (interactive "P")
@@ -267,7 +270,7 @@ this heading."
 	    ;; No specific heading, just go to end of file.
 	    (goto-char (point-max)) (insert "\n"))
 	  ;; Paste
-	  (org-paste-subtree (org-get-valid-level level 1))
+	  (org-paste-subtree (org-get-valid-level level (and heading 1)))
 
 	  ;; Mark the entry as done
 	  (when (and org-archive-mark-done
@@ -304,7 +307,10 @@ this heading."
       (message "Subtree archived %s"
 	       (if (eq this-buffer buffer)
 		   (concat "under heading: " heading)
-		 (concat "in file: " (abbreviate-file-name afile)))))))
+		 (concat "in file: " (abbreviate-file-name afile))))))
+  (org-reveal)
+  (if (looking-at "^[ \t]*$")
+      (outline-next-visible-heading 1)))
 
 (defun org-archive-to-archive-sibling ()
   "Archive the current heading by moving it under the archive sibling.
@@ -322,12 +328,13 @@ sibling does not exist, it will be created at the end of the subtree."
       (setq pos (point))
       (condition-case nil
 	  (outline-up-heading 1 t)
-	(error (goto-char (point-min))))
+	(error (setq e (point-max)) (goto-char (point-min))))
       (setq b (point))
-      (condition-case nil
-	  (org-end-of-subtree t t)
-	(error (goto-char (point-max))))
-      (setq e (point))
+      (unless e
+	(condition-case nil
+	    (org-end-of-subtree t t)
+	  (error (goto-char (point-max))))
+	(setq e (point)))
       (goto-char b)
       (unless (re-search-forward
 	       (concat "^" (regexp-quote leader)
@@ -344,7 +351,7 @@ sibling does not exist, it will be created at the end of the subtree."
       (org-end-of-subtree t t)
       (save-excursion
 	(goto-char pos)
-	(org-cut-subtree))
+	(let ((this-command this-command)) (org-cut-subtree)))
       (org-paste-subtree (org-get-valid-level level 1))
       (org-set-property
        "ARCHIVE_TIME"
@@ -353,7 +360,11 @@ sibling does not exist, it will be created at the end of the subtree."
 	(current-time)))
       (outline-up-heading 1 t)
       (hide-subtree)
-      (goto-char pos))))
+      (org-cycle-show-empty-lines 'folded)
+      (goto-char pos)))
+  (org-reveal)
+  (if (looking-at "^[ \t]*$")
+      (outline-next-visible-heading 1)))
 
 (defun org-archive-all-done (&optional tag)
   "Archive sublevels of the current tree without open TODO items.

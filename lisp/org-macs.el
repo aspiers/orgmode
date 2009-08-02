@@ -1,11 +1,12 @@
 ;;; org-macs.el --- Top-level definitions for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.05
+;; Version: 6.28trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -32,6 +33,12 @@
 
 ;;; Code:
 
+(eval-and-compile
+  (unless (fboundp 'declare-function)
+    (defmacro declare-function (fn file &optional arglist fileonly))))
+
+(declare-function org-add-props "org-compat" (string plist &rest props))
+
 (defmacro org-bound-and-true-p (var)
   "Return the value of symbol VAR if it is bound, else nil."
   `(and (boundp (quote ,var)) ,var))
@@ -47,6 +54,8 @@
       (let ((ss s))
 	(save-match-data
 	  (while (string-match "\\[:alnum:\\]" ss)
+	    (setq ss (replace-match "a-zA-Z0-9" t t ss)))
+	  (while (string-match "\\[:word:\\]" ss)
 	    (setq ss (replace-match "a-zA-Z0-9" t t ss)))
 	  (while (string-match "\\[:alpha:\\]" ss)
 	    (setq ss (replace-match "a-zA-Z" t t ss)))
@@ -70,12 +79,8 @@
 	   ,@body)
        (if pc-mode (partial-completion-mode 1)))))
 
-(eval-and-compile
-  (unless (fboundp 'declare-function)
-    (defmacro declare-function (fn file &optional arglist fileonly))))
-
 (defmacro org-maybe-intangible (props)
-  "Add '(intangigble t) to PROPS if Emacs version is earlier than Emacs 22.
+  "Add '(intangible t) to PROPS if Emacs version is earlier than Emacs 22.
 In emacs 21, invisible text is not avoided by the command loop, so the
 intangible property is needed to make sure point skips this text.
 In Emacs 22, this is not necessary.  The intangible text property has
@@ -100,6 +105,16 @@ We use a macro so that the test can happen at compilation time."
 (defmacro org-if-unprotected (&rest body)
   "Execute BODY if there is no `org-protected' text property at point."
   `(unless (get-text-property (point) 'org-protected)
+     ,@body))
+
+(defmacro org-if-unprotected-1 (&rest body)
+  "Execute BODY if there is no `org-protected' text property at point-1."
+  `(unless (get-text-property (1- (point)) 'org-protected)
+     ,@body))
+
+(defmacro org-if-unprotected-at (pos &rest body)
+  "Execute BODY if there is no `org-protected' text property at point-1."
+  `(unless (get-text-property ,pos 'org-protected)
      ,@body))
 
 (defmacro org-with-remote-undo (_buffer &rest _body)
@@ -152,6 +167,18 @@ We use a macro so that the test can happen at compilation time."
 	((assoc key option) (cdr (assoc key option)))
 	(t (cdr (assq 'default option)))))
 
+(defsubst org-check-external-command (cmd &optional use no-error)
+  "Check if external progam CMD for USE exists, error if not.
+When the program does exist, return it's path.
+When it does not exist and NO-ERROR is set, return nil.
+Otherwise, throw an error.  The optional argument USE can describe what this
+program is needed for, so that the error message can be more informative."
+  (or (executable-find cmd)
+      (if no-error
+	  nil
+	(error "Can't find `%s'%s" cmd
+	       (if use (format " (%s)" use) "")))))
+
 (defsubst org-inhibit-invisibility ()
   "Modified `buffer-invisibility-spec' for Emacs 21.
 Some ops with invisible text do not work correctly on Emacs 21.  For these
@@ -160,7 +187,7 @@ we turn off invisibility temporarily.  Use this in a `let' form."
 
 (defsubst org-set-local (var value)
   "Make VAR local in current buffer and set it to VALUE."
-  (set (make-variable-buffer-local var) value))
+  (set (make-local-variable var) value))
 
 (defsubst org-mode-p ()
   "Check if the current buffer is in Org-mode."
@@ -187,6 +214,9 @@ we turn off invisibility temporarily.  Use this in a `let' form."
     (and pos (goto-char pos))
     ;; works also in narrowed buffer, because we start at 1, not point-min
     (+ (if (bolp) 1 0) (count-lines 1 (point)))))
+
+(defsubst org-current-line-string (&optional to-here)
+  (buffer-substring (point-at-bol) (if to-here (point) (point-at-eol))))
 
 (defsubst org-pos-in-match-range (pos n)
   (and (match-beginning n)
@@ -216,6 +246,15 @@ This is in contrast to merely setting it to 0."
 	  (setq p (plist-put p (car plist) (nth 1 plist))))
       (setq plist (cddr plist)))
     p))
+
+
+(defun org-replace-match-keep-properties (newtext &optional fixedcase
+						  literal string)
+  "Like `replace-match', but add the text properties found original text."
+  (setq newtext (org-add-props newtext (text-properties-at
+					(match-beginning 0) string)))
+  (replace-match newtext fixedcase literal string))
+
 
 (provide 'org-macs)
 

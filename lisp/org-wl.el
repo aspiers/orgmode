@@ -1,11 +1,12 @@
 ;;; org-wl.el --- Support for links to Wanderlust messages from within Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;;   Free Software Foundation, Inc.
 
 ;; Author: Tokuya Kameshima <kames at fa2 dot so-net dot ne dot jp>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.05
+;; Version: 6.28trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -53,8 +54,8 @@
 ;; Backward compatibility to old version of wl
 (declare-function wl "ext:wl" () t)
 (declare-function wl-summary-buffer-msgdb "ext:wl-folder" () t)
-(declare-function wl-folder-get-elmo-folder "ext:wl-folder"
-		  (entity &optional no-cache))
+;(declare-function wl-folder-get-elmo-folder "ext:wl-folder"
+;		  (entity &optional no-cache))
 (declare-function wl-summary-goto-folder-subr "ext:wl-summary"
 		  (&optional name scan-type other-window sticky interactive
 			     scoring force-exit))
@@ -67,7 +68,6 @@
 (declare-function wl-summary-registered-temp-mark "ext:wl-action" (number))
 (declare-function wl-folder-goto-folder-subr "ext:wl-folder"
 		  (&optional folder sticky))
-(declare-function wl-thread-open-all "ext:wl-thread" ())
 (defvar wl-init)
 (defvar wl-summary-buffer-elmo-folder)
 (defvar wl-summary-buffer-folder-name)
@@ -123,7 +123,8 @@
      (error "Error in Wanderlust link"))
  (let ((folder (match-string 1 path))
 	(article (match-string 3 path)))
-   (if (not (elmo-folder-exists-p (wl-folder-get-elmo-folder folder)))
+   (if (not (elmo-folder-exists-p (org-no-warnings
+				   (wl-folder-get-elmo-folder folder))))
 	(error "No such folder: %s" folder))
    (let ((old-buf (current-buffer))
 	  (old-point (point-marker)))
@@ -134,7 +135,6 @@
 	;; in the old buffer.
 	(set-buffer old-buf)
 	(goto-char old-point))
-     (wl-thread-open-all)
      (and (wl-summary-jump-to-msg-by-message-id (org-add-angle-brackets
 						  article))
 	   (wl-summary-redisplay)))))
