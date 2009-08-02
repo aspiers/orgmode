@@ -120,13 +120,13 @@
 
           ;; And output the new node
 	  (let* ((heading
-		  (concat "<html><h3>" 
+		  (concat "<html><h1>" 
 			  (replace-regexp-in-string 
 			   ":.*:" 
 			   (lambda (x) 
 			     (concat "<font color='red'>" x "</font>")) 
 			   text)
-			  "</h3></html>"))
+			  "</h1></html>"))
 		 (html-quoted-heading (org-html-expand heading))
 		 (exp-quote-heading (replace-regexp-in-string "'" "&quot;" html-quoted-heading)))
 	    (org-export-as-xoxo-insert-into out exp-quote-heading "'>\n"))
