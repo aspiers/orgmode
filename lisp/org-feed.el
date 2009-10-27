@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -506,7 +506,7 @@ and returns the full property list.
 If that property is already present, nothing changes."
   (if formatter
       (funcall formatter entry)
-    (let (dlines fmt tmp indent time
+    (let (dlines fmt tmp indent time name
 		 v-h v-t v-T v-u v-U v-a)
       (setq dlines (org-split-string (or (plist-get entry :description) "???")
 				     "\n")
@@ -660,6 +660,4 @@ formatted as a string, not the original XML data."
 (provide 'org-feed)
 
 ;; arch-tag: 0929b557-9bc4-47f4-9633-30a12dbb5ae2
-
 ;;; org-feed.el ends here
-

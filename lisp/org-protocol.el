@@ -1,36 +1,30 @@
 ;;; org-protocol.el --- Intercept calls from emacsclient to trigger custom actions.
 ;;
-;; Copyright (c) 2008, 2009
-;;          Bastien Guerry <bzg AT altern DOT org>,
-;;          Daniel German <dmg AT uvic DOT org>,
-;;          Sebastian Rose <sebastian_rose AT gmx DOT de>,
-;;          Ross Patterson <me AT rpatterson DOT net>
-;;          David Moffat
-;;          (will be FSF when done)
+;; Copyright (C) 2008, 2009
+;;          Free Software Foundation, Inc.
 ;;
-;;
-;; Filename: org-protocol.el
-;; Version: 6.28trans
 ;; Author: Bastien Guerry <bzg AT altern DOT org>
 ;; Author: Daniel M German <dmg AT uvic DOT org>
 ;; Author: Sebastian Rose <sebastian_rose AT gmx DOT de>
 ;; Author: Ross Patterson <me AT rpatterson DOT net>
 ;; Maintainer: Sebastian Rose <sebastian_rose AT gmx DOT de>
 ;; Keywords: org, emacsclient, wp
+;; Version: 6.32trans
 
-;; This file is not part of GNU Emacs.
-
-;; This program is free software: you can redistribute it and/or modify
+;; This file is part of GNU Emacs.
+;;
+;; GNU Emacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
-;; See <http://www.gnu.org/licenses/>.
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Commentary:
@@ -131,7 +125,7 @@
 		  (&optional refresh))
 (declare-function org-publish-get-project-from-filename "org-publish"
 		  (filename &optional up))
-(declare-function server-edit "server" ())
+(declare-function server-edit "server" (&optional arg))
 
 
 (defgroup org-protocol nil
@@ -253,6 +247,11 @@ Here is an example:
          :function your-protocol-handler-fuction)))"
   :group 'org-protocol
   :type '(alist))
+
+(defcustom org-protocol-default-template-key "w"
+  "The default org-remember-templates key to use."
+  :group 'org-protocol
+  :type 'string)
 
 
 ;;; Helper functions:
@@ -423,7 +422,6 @@ The sub-protocol used to reach this function is set in
              uri))
   nil)
 
-
 (defun org-protocol-remember  (info)
   "Process an org-protocol://remember:// style url.
 
@@ -438,8 +436,9 @@ The location for a browser's bookmark has to look like this:
         encodeURIComponent(document.title)+'/'+ \\
         encodeURIComponent(window.getSelection())
 
-By default the template character ?w is used. But you may prepend the encoded
-URL with a character and a slash like so:
+By default, it uses the character `org-protocol-default-template-key',
+which should be associated with a template in `org-remember-templates'.
+But you may prepend the encoded URL with a character and a slash like so:
 
   javascript:location.href='org-protocol://org-store-link://b/'+ ...
 
@@ -448,7 +447,8 @@ Now template ?b will be used."
   (if (and (boundp 'org-stored-links)
            (fboundp 'org-remember))
       (let* ((parts (org-protocol-split-data info t))
-             (template (or (and (= 1 (length (car parts))) (pop parts)) "w"))
+             (template (or (and (= 1 (length (car parts))) (pop parts))
+			   org-protocol-default-template-key))
              (url (org-protocol-sanitize-uri (car parts)))
              (type (if (string-match "^\\([a-z]+\\):" url)
                        (match-string 1 url)))
@@ -468,7 +468,6 @@ Now template ?b will be used."
 
     (message "Org-mode not loaded."))
   nil)
-
 
 (defun org-protocol-open-source (fname)
   "Process an org-protocol://open-source:// style url.
@@ -582,7 +581,6 @@ most of the work."
                (substitute-command-keys"\\[org-protocol-create]")))))
 
 
-
 (defun org-protocol-create(&optional project-plist)
   "Create a new org-protocol project interactively.
 An org-protocol project is an entry in `org-protocol-project-alist'
@@ -630,8 +628,9 @@ project-plist is the CDR of an element in `org-publish-project-alist', reuse
                                  :online-suffix ,strip-suffix
                                  :working-suffix ,working-suffix))
                   org-protocol-project-alist))
-      (customize-save-variable 'org-protocol-project-alist org-protocol-project-alist))
-))
+      (customize-save-variable 'org-protocol-project-alist org-protocol-project-alist))))
 
 (provide 'org-protocol)
+
+;; arch-tag: b5c5c2ac-77cf-4a94-a649-2163dff95846
 ;;; org-protocol.el ends here

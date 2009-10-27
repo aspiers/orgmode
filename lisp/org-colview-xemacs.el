@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -328,8 +328,8 @@ This is the compiled version of the format.")
     ;; Check if the entry is in another buffer.
     (unless props
       (if (eq major-mode 'org-agenda-mode)
-	  (setq pom (or (get-text-property (point) 'org-hd-marker)
-			(get-text-property (point) 'org-marker))
+	  (setq pom (or (org-get-at-bol 'org-hd-marker)
+			(org-get-at-bol 'org-marker))
 		props (if pom (org-entry-properties pom) nil))
 	(setq props (org-entry-properties nil))))
     ;; Walk the format
@@ -627,7 +627,7 @@ Where possible, use the standard interface for changing this line."
      (t
       (setq allowed (org-property-get-allowed-values pom key 'table))
       (if allowed
-	  (setq nval (org-ido-completing-read "Value: " allowed nil t))
+	  (setq nval (org-icompleting-read "Value: " allowed nil t))
 	(setq nval (read-string "Edit: " value)))
       (setq nval (org-trim nval))
       (when (not (equal nval value))
@@ -684,8 +684,8 @@ Where possible, use the standard interface for changing this line."
 (defun org-columns-edit-allowed ()
   "Edit the list of allowed values for the current property."
   (interactive)
-  (let* ((pom (or (get-text-property (point-at-bol) 'org-marker)
-		  (get-text-property (point-at-bol) 'org-hd-marker)
+  (let* ((pom (or (org-get-at-bol 'org-marker)
+		  (org-get-at-bol 'org-hd-marker)
 		  (point)))
 	 (key (get-char-property (point) 'org-columns-key))
 	 (key1 (concat key "_ALL"))
@@ -876,7 +876,7 @@ around it."
 			 truncate-lines))
 	(setq truncate-lines t)
 	(mapc (lambda (x)
-		(goto-line (car x))
+		(org-goto-line (car x))
 		(org-columns-display-here (cdr x)))
 	      cache)))))
 
@@ -904,7 +904,7 @@ interactive function org-columns-new.")
   (let ((n (org-columns-current-column))
         (editp (and prop (assoc prop org-columns-current-fmt-compiled)))
 	cell)
-    (setq prop (org-ido-completing-read
+    (setq prop (org-icompleting-read
 		"Property: " (mapcar 'list (org-buffer-property-keys t nil t))
 		nil nil prop))
     (setq title (read-string (concat "Column title [" prop "]: ") (or title prop)))
@@ -912,7 +912,7 @@ interactive function org-columns-new.")
     (if (string-match "\\S-" width)
 	(setq width (string-to-number width))
       (setq width nil))
-    (setq fmt (org-ido-completing-read "Summary [none]: "
+    (setq fmt (org-icompleting-read "Summary [none]: "
 				       (mapcar (lambda (x) (list (symbol-name (cadr x)))) org-columns-compile-map)
 				       nil t))
     (setq fmt (intern fmt)
@@ -1200,7 +1200,7 @@ Don't set this, this is meant for dynamic scoping.")
 
 (defun org-columns-uncompile-format (cfmt)
   "Turn the compiled columns format back into a string representation."
-  (let ((rtn "") e s prop title op op-match width fmt printf)
+  (let ((rtn "") e s prop title op op-match width fmt printf fun)
     (while (setq e (pop cfmt))
       (setq prop (car e)
 	    title (nth 1 e)
@@ -1291,7 +1291,7 @@ of fields."
 		  (throw 'next t))
 		(setq row nil)
 		(loop for i from 0 to (1- n) do
-		      (push 
+		      (push
 		       (org-quote-vert
 			(or (get-char-property (point)
 					       'org-columns-value-modified)
@@ -1443,7 +1443,7 @@ and tailing newline characters."
   (interactive)
   (when (featurep 'xemacs) (org-columns-quit))
   (let ((defaults '(:name "columnview" :hlines 1))
-	(id (org-ido-completing-read
+	(id (org-icompleting-read
 	     "Capture columns (local, global, entry with :ID: property) [local]: "
 	     (append '(("global") ("local"))
 		     (mapcar 'list (org-property-values "ID"))))))
@@ -1474,7 +1474,7 @@ and tailing newline characters."
 	   org-agenda-overriding-columns-format)
       (setq fmt org-agenda-overriding-columns-format)
       (org-set-local 'org-agenda-overriding-columns-format fmt))
-     ((setq m (get-text-property (point-at-bol) 'org-hd-marker))
+     ((setq m (org-get-at-bol 'org-hd-marker))
       (setq fmt (or (org-entry-get m "COLUMNS" t)
 		    (with-current-buffer (marker-buffer m)
 		      org-columns-default-format))))
@@ -1496,8 +1496,8 @@ and tailing newline characters."
       ;; Get and cache the properties
       (goto-char (point-min))
       (while (not (eobp))
-	(when (setq m (or (get-text-property (point) 'org-hd-marker)
-			  (get-text-property (point) 'org-marker)))
+	(when (setq m (or (org-get-at-bol 'org-hd-marker)
+			  (org-get-at-bol 'org-marker)))
 	  (setq p (org-entry-properties m))
 
 	  (when (or (not (setq a (assoc org-effort-property p)))
@@ -1515,7 +1515,7 @@ and tailing newline characters."
 	(org-set-local 'org-columns-current-maxwidths maxwidths)
 	(org-columns-display-here-title)
 	(mapc (lambda (x)
-		(goto-line (car x))
+		(org-goto-line (car x))
 		(org-columns-display-here (cdr x)))
 	      cache)
 	(when org-agenda-columns-show-summaries

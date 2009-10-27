@@ -4,7 +4,7 @@
 
 ;; Author: John Wiegley <johnw@newartisans.com>
 ;; Keywords: org data task
-;; Version: 6.28trans
+;; Version: 6.32trans
 
 ;; This file is part of GNU Emacs.
 ;;
@@ -217,7 +217,7 @@ Throw an error if we cannot root the directory."
   (or (and dir (file-name-absolute-p dir))
       (file-name-absolute-p org-attach-directory)
       (buffer-file-name (buffer-base-buffer))
-      (error "Need absolute `org-attach-directory' to attach in buffers without filename.")))
+      (error "Need absolute `org-attach-directory' to attach in buffers without filename")))
 
 (defun org-attach-set-directory ()
   "Set the ATTACH_DIR property of the current entry.
@@ -314,7 +314,7 @@ The attachment is created as an Emacs buffer."
   (let* ((attach-dir (org-attach-dir t))
 	 (files (org-attach-file-list attach-dir))
 	 (file (or file
-		   (org-ido-completing-read
+		   (org-icompleting-read
 		    "Delete attachment: "
 		    (mapcar (lambda (f)
 			      (list (file-name-nondirectory f)))
@@ -389,7 +389,7 @@ If IN-EMACS is non-nil, force opening in Emacs."
 	 (files (org-attach-file-list attach-dir))
 	 (file (if (= (length files) 1)
 		   (car files)
-		 (org-ido-completing-read "Open attachment: "
+		 (org-icompleting-read "Open attachment: "
 				  (mapcar 'list files) nil t))))
     (org-open-file (expand-file-name file attach-dir) in-emacs)))
 

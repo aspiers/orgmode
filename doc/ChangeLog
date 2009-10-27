@@ -1,3 +1,121 @@
+2009-10-24  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Clocking work time): Better description on how to save
+	and restore a clock.
+	(Resolving idle time): Mention the x11idle program to get true
+	idleness also under X11.
+	(Resolving idle time): Use @kbd instead of @key for normal
+	letters, because this is how he rest of the manual does this.
+
+2009-10-19  John Wiegley  <johnw@newartisans.com>
+
+	* org.texi (Tracking your habits): Added a new section in the
+	manual about how to track habits.
+
+2009-10-18  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Pushing to MobileOrg): Mention that `org-directory'
+	should be set.
+
+2009-10-17  John Wiegley  <johnw@newartisans.com>
+
+	* org.texi (Resolving idle time): Added a section on how idle and
+	dangling clocks are resolved.
+
+2009-10-14  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Agenda commands): Document that SPC is a filter for
+	any tag.
+	(Search view): Renamed from "Keyword search".
+
+2009-10-04  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Cap): New chapter.
+	(Markup): New chapter.
+
+2009-10-03  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Links in HTML export, Images in HTML export): Extend
+	the section titles.
+	(Images in HTML export): Document the align option.
+	(Text areas in HTML export): Extend the section title.
+	(Images in LaTeX export): Explain image placement in LaTeX.
+
+	* org.texi: Removed @Ie, @ie, @Eg, @eg macros.
+
+2009-09-28  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Pushing to MobileOrg): Document `org-mobile-files'.
+
+2009-09-26  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Processing LaTeX fragments): Document that the size of
+	images can be changes using the variable
+	`org-format-latex-options'.
+
+2009-09-21  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (The date/time prompt, Timestamps): Be more accurate
+	over ISO format dates and times.
+
+2009-09-18  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Visibility cycling): Document showeverything keyword.
+	(In-buffer settings): Document showeverything keyword.
+
+2009-09-17  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Setting up the staging area): Fix the example.
+
+2009-09-15  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (MobileOrg): New section.
+	(Agenda commands, Exporting Agenda Views): Document exporting the
+	agenda view to Org files.
+
+2009-08-29  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* orgcard.tex: Document new effort setting commands.
+
+	* org.texi (Effort estimates): Document new effort setting
+	commands.
+
+2009-08-27  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* orgcard.tex: Document the new keys for agenda time motion.
+
+	* org.texi (Agenda commands): Document the new keys fro agenda
+	time motion.
+
+	* orgcard.tex: Document the `E' key in the agenda.
+
+	* org.texi (Agenda commands): Document entry text mode.
+
+2009-08-18  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Agenda commands): Improve documentation of the keys to
+	include inactive time stamps into the agenda view.
+	(Feedback): Document the new bug report command.
+
+2009-08-14  Dan Davison <davison@stats.ox.ac.uk>  (tiny change)
+
+	* org.texi (Structure editing): Added an index entry for the
+	sorting of subtrees.
+
+2009-08-09  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Literal examples): Document that source code can be
+	exported to LaTeX using the listings package.
+
+2009-08-04  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Publishing action): Improve documentation of file
+	names when publishing to the source directory.
+
+2009-08-03  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Clean view): Document `org-indent-mode'.
+
 2009-07-26  Bastien Guerry  <bzg@altern.org>
 
 	* org.texi (Clocking work time): Add documentation for the

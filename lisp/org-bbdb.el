@@ -7,7 +7,7 @@
 ;;         Thomas Baumann <thomas dot baumann at ch dot tum dot de>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -376,7 +376,7 @@ END:VEVENT\n"
 				(org-split-string (nth 1 rec) "[^a-zA-Z0-90]+")
 				"-")
 		     (nth 0 rec) (nth 0 key) (nth 1 key)
-		     (nth 1 rec) 
+		     (nth 1 rec)
 		     (concat (capitalize categ) " " (nth 1 rec))
 		     categ)))))
 

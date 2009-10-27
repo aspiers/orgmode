@@ -7,7 +7,7 @@
 ;;	   Bastien Guerry <bzg AT altern DOT org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -36,11 +36,12 @@
 
 (defvar org-blank-before-new-entry)
 (defvar org-M-RET-may-split-line)
+(defvar org-complex-heading-regexp)
+(defvar org-odd-levels-only)
 
 (declare-function org-invisible-p "org" ())
 (declare-function org-on-heading-p "org" (&optional invisible-ok))
 (declare-function outline-next-heading "outline" ())
-(declare-function outline-back-to-heading "outline" (&optional invisible-ok))
 (declare-function org-back-to-heading "org" (&optional invisible-ok))
 (declare-function org-back-over-empty-lines "org" ())
 (declare-function org-skip-whitespace "org" ())
@@ -147,7 +148,9 @@ toggle a checkbox with \\[org-ctrl-c-ctrl-c]."
 
 (defcustom org-hierarchical-checkbox-statistics t
   "Non-nil means, checkbox statistics counts only the state of direct children.
-When nil, all boxes below the cookie are counted."
+When nil, all boxes below the cookie are counted.
+This can be set to nil on a per-node basis using a COCKIE_DATA property
+with the word \"recursive\" in the value."
   :group 'org-plain-lists
   :type 'boolean)
 
@@ -424,7 +427,7 @@ the whole buffer."
 	  (re "\\(\\(\\[[0-9]*%\\]\\)\\|\\(\\[[0-9]*/[0-9]*\\]\\)\\)")
 	  (re-box "^[ \t]*\\([-+*]\\|[0-9]+[.)]\\) +\\(\\[[- X]\\]\\)")
 	  (re-find (concat re "\\|" re-box))
-	  beg-cookie end-cookie is-percent c-on c-off lim
+	  beg-cookie end-cookie is-percent c-on c-off lim new
 	  eline curr-ind next-ind continue-from startsearch
 	  (recursive
 	   (or (not org-hierarchical-checkbox-statistics)
@@ -485,12 +488,12 @@ the whole buffer."
 	 (goto-char continue-from)
 	 ;; update cookie
 	 (when end-cookie
-	   (delete-region beg-cookie end-cookie)
+	   (setq new (if is-percent
+			 (format "[%d%%]" (/ (* 100 c-on) (max 1 (+ c-on c-off))))
+		       (format "[%d/%d]" c-on (+ c-on c-off))))
 	   (goto-char beg-cookie)
-	   (insert
-	    (if is-percent
-		(format "[%d%%]" (/ (* 100 c-on) (max 1 (+ c-on c-off))))
-	      (format "[%d/%d]" c-on (+ c-on c-off)))))
+	   (insert new)
+	   (delete-region (point) (+ (point) (- end-cookie beg-cookie))))
 	 ;; update items checkbox if it has one
 	 (when (org-at-item-p)
 	   (org-beginning-of-item)
@@ -809,7 +812,7 @@ with something like \"1.\" or \"2)\"."
 	      (buffer-substring (point-at-bol) (match-beginning 3))))
 	;; (term (substring (match-string 3) -1))
 	ind1 (n (1- arg))
-	fmt bobp old new)
+	fmt bobp old new delta)
     ;; find where this list begins
     (org-beginning-of-item-list)
     (setq bobp (bobp))
@@ -831,8 +834,10 @@ with something like \"1.\" or \"2)\"."
 	  (delete-region (match-beginning 2) (match-end 2))
 	  (goto-char (match-beginning 2))
 	  (insert (setq new (format fmt (setq n (1+ n)))))
-	  (org-shift-item-indentation (- (length new) (length old))))))
-    (goto-line line)
+	  (setq delta (- (length new) (length old)))
+	  (org-shift-item-indentation delta)
+	  (if (= (org-current-line) line) (setq col (+ col delta))))))
+    (org-goto-line line)
     (org-move-to-column col)))
 
 (defun org-fix-bullet-type (&optional force-bullet)
@@ -870,7 +875,7 @@ Also, fix the indentation."
 	  (setq oldbullet (match-string 0))
 	  (unless (equal bullet oldbullet) (replace-match bullet))
 	  (org-shift-item-indentation (- (length bullet) (length oldbullet))))))
-    (goto-line line)
+    (org-goto-line line)
     (org-move-to-column col)
     (if (string-match "[0-9]" bullet)
 	(org-renumber-ordered-list 1))))
@@ -1110,13 +1115,13 @@ cdr is the indentation string."
   (progn
     (re-search-forward org-list-beginning-re nil t)
     (goto-char (match-beginning 0))))
-  
+
 (defun org-list-make-subtree ()
   "Convert the plain list at point into a subtree."
   (interactive)
   (org-list-goto-true-beginning)
   (let ((list (org-list-parse-list t)) nstars)
-    (save-excursion 
+    (save-excursion
       (if (condition-case nil
 	      (org-back-to-heading)
 	    (error nil))
@@ -1131,8 +1136,8 @@ cdr is the indentation string."
       (org-list-make-subtrees (cdr list) level)
     (mapcar (lambda (item)
 	      (if (stringp item)
-		  (insert (make-string 
-			   (if org-odd-levels-only 
+		  (insert (make-string
+			   (if org-odd-levels-only
 			       (1- (* 2 level)) level) ?*) " " item "\n")
 		(org-list-make-subtrees item (1+ level))))
 	    list)))
@@ -1174,7 +1179,7 @@ this list."
   (catch 'exit
     (unless (org-at-item-p) (error "Not at a list"))
     (save-excursion
-      (org-list-find-true-beginning)
+      (org-list-goto-true-beginning)
       (beginning-of-line 0)
       (unless (looking-at "#\\+ORGLST: *SEND +\\([a-zA-Z0-9_]+\\) +\\([^ \t\r\n]+\\)\\( +.*\\)?")
 	(if maybe

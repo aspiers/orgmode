@@ -1,7 +1,59 @@
+2009-10-22  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-registry.el (org-registry-assoc-all)
+	(org-registry-find-all): Clean rewrite
+
+2009-10-19  James TD Smith  <ahktenzero@mohorovi.cc>
+
+	* lisp/org-registry.el (org-registry-assoc-all): Stop this from
+	deleting the links it finds from the registry.
+	(org-registry-find-all): Add a new function which returns all
+	registry entries which satisfy a test function.
+
+2009-10-02  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-special-blocks.el (org-special-blocks-ignore-regexp):
+	New variable.
+	(org-special-blocks-make-special-cookies): Use
+	`org-special-blocks-ignore-regexp'.
+
+2009-09-16  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-invoice.el: New file.
+
+2009-08-14  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-exp-bibtex.el (org-export-bibtex-preprocess): Use a
+	safer regular expression.
+
+2009-08-07  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-track.el: New file.
+
+2009-08-03  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* lisp/org-indent.el: File removed.
+
 2009-07-21  Wes Hardaker <wjhns209@hardakers.net>  (tiny change)
 
 	* lisp/org-export-generic.el (org-export-generic-format): Fix
 	compatibility issue with Emacs 23.
+
+2009-07-12  James TD Smith  <ahktenzero@mohorovi.cc>
+
+	* lisp/org-checklist.el (org-checklist): Add a custom group for
+	org-checklist. The options are all for the unchecked items export
+	function.
+	(org-checklist-export-time-format): Allow customising the
+	timestamp appended to the saved unchecked items list
+	(org-checklist-export-function): Allow customising the output
+	format for the unchecked items list.
+	(org-checklist-export-params): Options for the exporter.
+	(org-checklist-a2ps-params): Printing options.
+	(org-make-checklist-export): Use values from custom vars. Printing
+	is now controlled by the PRINT_EXPORT property in the entry, and
+	the user is only asked if it is missing. Pass the switches to
+	a2ps-buffer properly.
 
 2009-06-20  Carsten Dominik  <carsten.dominik@gmail.com>
 
@@ -244,5 +296,3 @@
 	* lisp/org-irc.el: New file.
 
 	* ChangeLog: New file.
-
-

@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -87,7 +87,7 @@
 (defcustom org-id-method
   (condition-case nil
       (if (string-match "\\`[-0-9a-fA-F]\\{36\\}\\'"
-			(org-trim (shell-command-to-string 
+			(org-trim (shell-command-to-string
 				   org-id-uuid-program)))
 	  'uuidgen
 	'org)
@@ -202,7 +202,7 @@ With optional argument FORCE, force the creation of a new ID."
   "Copy the ID of the entry at point to the kill ring.
 Create an ID if necessary."
   (interactive)
-  (kill-new (org-id-get nil 'create)))
+  (org-kill-new (org-id-get nil 'create)))
 
 ;;;###autoload
 (defun org-id-get (&optional pom create prefix)
@@ -212,16 +212,17 @@ If the entry does not have an ID, the function returns nil.
 However, when CREATE is non nil, create an ID if none is present already.
 PREFIX will be passed through to `org-id-new'.
 In any case, the ID of the entry is returned."
-  (let ((id (org-entry-get pom "ID")))
-    (cond
-     ((and id (stringp id) (string-match "\\S-" id))
-      id)
-     (create
-      (setq id (org-id-new prefix))
-      (org-entry-put pom "ID" id)
-      (org-id-add-location id (buffer-file-name (buffer-base-buffer)))
-      id)
-     (t nil))))
+  (org-with-point-at pom
+    (let ((id (org-entry-get nil "ID")))
+      (cond
+       ((and id (stringp id) (string-match "\\S-" id))
+	id)
+       (create
+	(setq id (org-id-new prefix))
+	(org-entry-put pom "ID" id)
+	(org-id-add-location id (buffer-file-name (buffer-base-buffer)))
+	id)
+       (t nil)))))
 
 ;;;###autoload
 (defun org-id-get-with-outline-path-completion (&optional targets)
@@ -390,7 +391,7 @@ When FILES is given, scan these files instead.
 When CHECK is given, prepare detailed information about duplicate IDs."
   (interactive)
   (if (not org-id-track-globally)
-      (error "Please turn on `org-id-track-globally' if you want to track IDs.")
+      (error "Please turn on `org-id-track-globally' if you want to track IDs")
     (let ((files
 	   (or files
 	       (append
@@ -563,7 +564,7 @@ optional argument MARKERP, return the position as a new marker."
 ;; so we do have to add it to `org-store-link-functions'.
 
 (defun org-id-store-link ()
-  "Store a link to the current entry, using it's ID."
+  "Store a link to the current entry, using its ID."
   (interactive)
   (let* ((link (org-make-link "id:" (org-id-get-create)))
 	 (desc (save-excursion
@@ -577,11 +578,22 @@ optional argument MARKERP, return the position as a new marker."
 (defun org-id-open (id)
   "Go to the entry with id ID."
   (org-mark-ring-push)
-  (let ((m (org-id-find id 'marker)))
+  (let ((m (org-id-find id 'marker))
+	cmd)
     (unless m
       (error "Cannot find entry with ID \"%s\"" id))
+    ;; Use a buffer-switching command in analogy to finding files
+    (setq cmd
+	  (or
+	   (cdr
+	    (assq
+	     (cdr (assq 'file org-link-frame-setup))
+	     '((find-file . switch-to-buffer)
+	       (find-file-other-window . switch-to-buffer-other-window)
+	       (find-file-other-frame . switch-to-buffer-other-frame))))
+	   'switch-to-buffer-other-window))
     (if (not (equal (current-buffer) (marker-buffer m)))
-	(switch-to-buffer-other-window (marker-buffer m)))
+	(funcall cmd (marker-buffer m)))
     (goto-char m)
     (move-marker m nil)
     (org-show-context)))

@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -27,9 +27,15 @@
 ;;; Commentary:
 
 (require 'org-exp)
+(eval-when-compile (require 'cl))
 
 (declare-function org-id-find-id-file "org-id" (id))
 (declare-function htmlize-region "ext:htmlize" (beg end))
+
+(defgroup org-export-html nil
+  "Options specific for HTML export of Org-mode files."
+  :tag "Org Export HTML"
+  :group 'org-export)
 
 (defcustom org-export-html-footnotes-section "<div id=\"footnotes\">
 <h2 class=\"footnotes\">%s: </h2>
@@ -44,10 +50,11 @@ by the footnotes themselves."
   :group 'org-export-html
   :type 'string)
 
-(defgroup org-export-html nil
-  "Options specific for HTML export of Org-mode files."
-  :tag "Org Export HTML"
-  :group 'org-export)
+(defcustom org-export-html-footnote-format "<sup>%s</sup>"
+  "The format for the footnote reference.
+%s will be replaced by the footnote reference itself."
+  :group 'org-export-html
+  :type 'string)
 
 (defcustom org-export-html-coding-system nil
   "Coding system for HTML export, defaults to buffer-file-coding-system."
@@ -315,7 +322,7 @@ starting from 1 in the first header line.  For example
 
 will give even lines the class \"tr-even\" and odd lines the class \"tr-odd\"."
   :group 'org-export-tables
-  :type '(cons 
+  :type '(cons
 	  (choice :tag "Opening tag"
 		  (string :tag "Specify")
 		  (sexp))
@@ -410,6 +417,9 @@ This may also be a function, building and inserting the postamble.")
 ;;; Hooks
 
 (defvar org-export-html-after-blockquotes-hook nil
+  "Hook run during HTML export, after blockquote, verse, center are done.")
+
+(defvar org-export-html-final-hook nil
   "Hook run during HTML export, after blockquote, verse, center are done.")
 
 ;;; HTML export
@@ -537,7 +547,7 @@ PUB-DIR is set, use this as the publishing directory."
 	(org-set-local 'buffer-file-name
 		       (with-current-buffer (buffer-base-buffer)
 			 buffer-file-name))
-      (error "Need a file name to be able to export.")))
+      (error "Need a file name to be able to export")))
 
   (message "Exporting...")
   (setq-default org-todo-line-regexp org-todo-line-regexp)
@@ -920,13 +930,6 @@ lang=\"%s\" xml:lang=\"%s\">
 	      (and par (insert "<p>\n")))
 	    (throw 'nextline nil))
 
-	  ;; Horizontal line
-	  (when (string-match "^[ \t]*-\\{5,\\}[ \t]*$" line)
-	    (if org-par-open
-		(insert "\n</p>\n<hr/>\n<p>\n")
-	      (insert "\n<hr/>\n"))
-	    (throw 'nextline nil))
-
 	  ;; Blockquotes, verse, and center
 	  (when (equal "ORG-BLOCKQUOTE-START" line)
 	    (org-close-par-maybe)
@@ -1175,8 +1178,10 @@ lang=\"%s\" xml:lang=\"%s\">
 		  (setq line
 			(replace-match
 			 (format
-			  "%s<sup><a class=\"footref\" name=\"fnr.%s%s\" href=\"#fn.%s\">%s</a></sup>"
-			  (match-string 1 line) n extra n n)
+			  (concat "%s"
+			 	  (format org-export-html-footnote-format
+			 		  "<a class=\"footref\" name=\"fnr.%s%s\" href=\"#fn.%s\">%s</a>"))
+			  (or (match-string 1 line) "") n extra n n)
 			 t t line))))))
 
 	  (cond
@@ -1306,6 +1311,13 @@ lang=\"%s\" xml:lang=\"%s\">
 			   "<b>[<span style=\"visibility:hidden;\">X</span>]</b>")
 			   t t line))))
 
+	    ;; Horizontal line
+	    (when (string-match "^[ \t]*-\\{5,\\}[ \t]*$" line)
+	      (if org-par-open
+		  (insert "\n</p>\n<hr/>\n<p>\n")
+		(insert "\n<hr/>\n"))
+	      (throw 'nextline nil))
+
 	    ;; Empty lines start a new paragraph.  If hand-formatted lists
 	    ;; are not fully interpreted, lines starting with "-", "+", "*"
 	    ;; also start a new paragraph.
@@ -1323,8 +1335,11 @@ lang=\"%s\" xml:lang=\"%s\">
 		(let ((n (match-string 1 line)))
 		  (setq org-par-open t
 			line (replace-match
-			      (format "<p class=\"footnote\"><sup><a class=\"footnum\" name=\"fn.%s\" href=\"#fnr.%s\">%s</a></sup>" n n n) t t line)))))
-
+			      (format
+			       (concat "<p class=\"footnote\">"
+				       (format org-export-html-footnote-format
+					       "<a class=\"footnum\" name=\"fn.%s\" href=\"#fnr.%s\">%s</a>"))
+			       n n n) t t line)))))
 	    ;; Check if the line break needs to be conserved
 	    (cond
 	     ((string-match "\\\\\\\\[ \t]*$" line)
@@ -1370,7 +1385,7 @@ lang=\"%s\" xml:lang=\"%s\">
 	  (replace-match "" t t)))
       (when footnotes
 	(insert (format org-export-html-footnotes-section
-			(or (nth 4 lang-words) "Footnotes")
+			(nth 4 lang-words)
 			(mapconcat 'identity (nreverse footnotes) "\n"))
 		"\n"))
       (let ((bib (org-export-html-get-bibliography)))
@@ -1409,7 +1424,8 @@ lang=\"%s\" xml:lang=\"%s\">
 
       (unless (plist-get opt-plist :buffer-will-be-killed)
 	(normal-mode)
-	(if (eq major-mode default-major-mode) (html-mode)))
+	(if (eq major-mode (default-value 'major-mode))
+	    (html-mode)))
 
       ;; insert the table of contents
       (goto-char (point-min))
@@ -1448,6 +1464,7 @@ lang=\"%s\" xml:lang=\"%s\">
 	  (delete-region beg end)
 	  (insert (format "<span style=\"visibility:hidden;\">%s</span>"
 			  (make-string n ?x)))))
+      (run-hooks 'org-export-html-final-hook)
       (or to-buffer (save-buffer))
       (goto-char (point-min))
       (or (org-export-push-to-kill-ring "HTML")
@@ -1459,7 +1476,7 @@ lang=\"%s\" xml:lang=\"%s\">
 
 (defun org-export-html-insert-plist-item (plist key &rest args)
   (let ((item (plist-get plist key)))
-    (cond ((functionp item) 
+    (cond ((functionp item)
            (apply item args))
           (item
            (insert item)))))
@@ -1488,17 +1505,22 @@ lang=\"%s\" xml:lang=\"%s\">
       (let* ((caption (org-find-text-property-in-string 'org-caption src))
 	     (attr (org-find-text-property-in-string 'org-attributes src))
 	     (label (org-find-text-property-in-string 'org-label src)))
-	(format "%s<div %sclass=\"figure\">
-<p><img src=\"%s\"%s /></p>%s
-</div>%s"
-		(if org-par-open "</p>\n" "")
-		(if label (format "id=\"%s\" " label) "")
+	(concat
+	(if caption
+	    (format "%s<div %sclass=\"figure\">
+<p>"
+		    (if org-par-open "</p>\n" "")
+		    (if label (format "id=\"%s\" " label) "")))
+	(format "<img src=\"%s\"%s />"
 		src
 		(if (string-match "\\<alt=" (or attr ""))
 		    (concat " " attr )
-		  (concat " " attr " alt=\"" src "\""))
-		(if caption (concat "\n<p>" caption "</p>") "")
-		(if org-par-open "\n<p>" ""))))))
+		  (concat " " attr " alt=\"" src "\"")))
+	(if caption
+	    (format "</p>%s
+</div>%s"
+		(concat "\n<p>" caption "</p>")
+		(if org-par-open "\n<p>" ""))))))))
 
 (defun org-export-html-get-bibliography ()
   "Find bibliography, cut it out and return it."
@@ -1624,19 +1646,27 @@ lang=\"%s\" xml:lang=\"%s\">
     (unless splice (push "</table>\n" html))
     (setq html (nreverse html))
     (unless splice
-      ;; Put in col tags with the alignment (unfortunately often ignored...)
-      (push (concat
-	     "<colgroup>"
-	     (mapconcat
-	      (lambda (x)
-		(setq gr (pop org-table-colgroup-info))
-		(format "<col align=\"%s\" />"
-			(if (> (/ (float x) nline) org-table-number-fraction)
-			    "right" "left")))
-	      fnum "")
-	     "</colgroup>")
+      ;; Put in col tags with the alignment (unfortuntely often ignored...)
+      (unless (car org-table-colgroup-info)
+	(setq org-table-colgroup-info
+	      (cons :start (cdr org-table-colgroup-info))))
+      (push (mapconcat
+	     (lambda (x)
+	       (setq gr (pop org-table-colgroup-info))
+	       (format "%s<col align=\"%s\" />%s"
+		       (if (memq gr '(:start :startend))
+			   (prog1
+			       (if colgropen "</colgroup>\n<colgroup>" "<colgroup>")
+			     (setq colgropen t))
+			 "")
+		       (if (> (/ (float x) nline) org-table-number-fraction)
+			   "right" "left")
+		       (if (memq gr '(:end :startend))
+			   (progn (setq colgropen nil) "</colgroup>")
+			 "")))
+	     fnum "")
 	    html)
-
+      (if colgropen (setq html (cons (car html) (cons "</colgroup>" (cdr html)))))
       ;; Since the output of HTML table formatter can also be used in
       ;; DocBook document, we want to always include the caption to make
       ;; DocBook XML file valid.
@@ -1865,13 +1895,6 @@ If there are links in the string, don't modify these."
 	      (setq start (+ start (length wd))))))))
   s)
 
-(defconst org-export-html-special-string-regexps
-  '(("\\\\-" . "&shy;")
-    ("---\\([^-]\\)" . "&mdash;\\1")
-    ("--\\([^-]\\)" . "&ndash;\\1")
-    ("\\.\\.\\." . "&hellip;"))
-  "Regular expressions for special string conversion.")
-
 (defun org-export-html-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (let ((all org-export-html-special-string-regexps)
@@ -2062,5 +2085,4 @@ Replaces invalid characters with \"_\" and then prepends a prefix."
 (provide 'org-html)
 
 ;; arch-tag: 8109d84d-eb8f-460b-b1a8-f45f3a6c7ea1
-
 ;;; org-html.el ends here

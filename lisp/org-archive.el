@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -32,6 +32,17 @@
 
 (require 'org)
 
+(declare-function org-inlinetask-remove-END-maybe "org-inlinetask" ())
+
+(defcustom org-archive-default-command 'org-archive-subtree
+  "The default archiving command.
+Currently this is only used by org-mobile.el."
+  :group 'org-archive
+  :type '(choice
+	  (const org-archive-subtree)
+	  (const org-archive-to-archive-sibling)
+	  (const org-archive-set-tag)))  
+
 (defcustom org-archive-sibling-heading "Archive"
   "Name of the local archive sibling that is used to archive entries locally.
 Locally means: in the tree, under a sibling.
@@ -39,7 +50,7 @@ See `org-archive-to-archive-sibling' for more information."
   :group 'org-archive
   :type 'string)
 
-(defcustom org-archive-mark-done t
+(defcustom org-archive-mark-done nil
   "Non-nil means, mark entries as DONE when they are moved to the archive file.
 This can be a string to set the keyword to use.  When t, Org-mode will
 use the first keyword in its list that means done."
@@ -303,6 +314,8 @@ this heading."
       ;; Here we are back in the original buffer.  Everything seems to have
       ;; worked.  So now cut the tree and finish up.
       (let (this-command) (org-cut-subtree))
+      (when (featurep 'org-inlinetask)
+	(org-inlinetask-remove-END-maybe))
       (setq org-markers-to-move nil)
       (message "Subtree archived %s"
 	       (if (eq this-buffer buffer)
@@ -423,6 +436,18 @@ the children that do not contain any open TODO items."
 	(when set (hide-subtree)))
       (and set (beginning-of-line 1))
       (message "Subtree %s" (if set "archived" "unarchived")))))
+
+(defun org-archive-set-tag ()
+  "Set the ARCHIVE tag."
+  (interactive)
+  (org-toggle-tag org-archive-tag 'on))
+
+;;;###autoload
+(defun org-archive-subtree-default ()
+  "Archive the current subtree with the default command.
+This command is set with the variable `org-archive-default-command'."
+  (interactive)
+  (call-interactively org-archive-default-command))
 
 (provide 'org-archive)
 

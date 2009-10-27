@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -38,6 +38,7 @@
 (require 'org-macs)
 (require 'org-compat)
 
+(declare-function org-in-commented-line "org" ())
 (declare-function org-in-regexp "org" (re &optional nlines visually))
 (declare-function org-mark-ring-push "org" (&optional pos buffer))
 (declare-function outline-next-heading "outline")
@@ -289,7 +290,8 @@ or new, let the user edit the definition of the footnote."
 	  (goto-char (point-max))
 	  (insert "\n\n* " org-footnote-section "\n")))
       ;; Now go to the end of this entry and insert there.
-      (org-footnote-goto-local-insertion-point))
+      (org-footnote-goto-local-insertion-point)
+      (org-show-context 'link-search))
      (t
       (setq re (concat "^" org-footnote-tag-for-non-org-mode-files "[ \t]*$"))
       (unless (re-search-forward re nil t)
@@ -363,42 +365,44 @@ referenced sequence."
       ;; Now find footnote references, and extract the definitions
       (goto-char (point-min))
       (while (re-search-forward org-footnote-re nil t)
-	(org-if-unprotected
-	 (setq def (match-string 4)
-	       idef def
-	       ref (or (match-string 1) (match-string 2))
-	       before (char-to-string (char-after (match-beginning 0))))
-	 (if (equal ref "fn:") (setq ref nil))
-	 (if (and ref (setq a (assoc ref ref-table)))
-	     (progn
-	       (setq marker (nth 1 a))
-	       (unless (nth 2 a) (setf (caddr a) def)))
-	   (setq marker (number-to-string (incf count))))
-	 (save-match-data
-	   (if def
-	       (setq def (org-trim def))
-	     (save-excursion
-	       (goto-char (point-min))
-	       (if (not (re-search-forward (concat "^\\[" (regexp-quote ref)
-						   "\\]") nil t))
-		   (setq def nil)
-		 (setq beg (match-beginning 0))
-		 (setq beg1 (match-end 0))
-		 (re-search-forward
-		  (org-re "^[ \t]*$\\|^\\*+ \\|^\\[\\([0-9]+\\|fn:[-_[:word:]]+\\)\\]")
-		  nil 'move)
-		 (setq def (buffer-substring beg1 (or (match-beginning 0)
-						      (point-max))))
-		 (goto-char beg)
-		 (skip-chars-backward " \t\n\t")
-		 (delete-region (1+ (point)) (match-beginning 0))))))
-	 (unless sort-only
-	   (replace-match (concat before "[" marker "]"))
-	   (and idef
-		org-footnote-fill-after-inline-note-extraction
-		(fill-paragraph)))
-	 (if (not a) (push (list ref marker def (if idef t nil)) ref-table))))
-
+	(unless (org-in-commented-line)
+	  (org-if-unprotected
+	   (setq def (match-string 4)
+		 idef def
+		 ref (or (match-string 1) (match-string 2))
+		 before (char-to-string (char-after (match-beginning 0))))
+	   (if (equal ref "fn:") (setq ref nil))
+	   (if (and ref (setq a (assoc ref ref-table)))
+	       (progn
+		 (setq marker (nth 1 a))
+		 (unless (nth 2 a) (setf (caddr a) def)))
+	     (setq marker (number-to-string (incf count))))
+	   (save-match-data
+	     (if def
+		 (setq def (org-trim def))
+	       (save-excursion
+		 (goto-char (point-min))
+		 (if (not (re-search-forward (concat "^\\[" (regexp-quote ref)
+						     "\\]") nil t))
+		     (setq def nil)
+		   (setq beg (match-beginning 0))
+		   (setq beg1 (match-end 0))
+		   (re-search-forward
+		    (org-re "^[ \t]*$\\|^\\*+ \\|^\\[\\([0-9]+\\|fn:[-_[:word:]]+\\)\\]")
+		    nil 'move)
+		   (setq def (buffer-substring beg1 (or (match-beginning 0)
+							(point-max))))
+		   (goto-char beg)
+		   (skip-chars-backward " \t\n\t")
+		   (delete-region (1+ (point)) (match-beginning 0))))))
+	   (unless sort-only
+	     (replace-match (concat before "[" marker "]"))
+	     (and idef
+		  org-footnote-fill-after-inline-note-extraction
+		  (fill-paragraph)))
+	   (if (not a) (push (list ref marker def (if idef t nil))
+			     ref-table)))))
+      
       ;; First find and remove the footnote section
       (goto-char (point-min))
       (cond
@@ -487,7 +491,7 @@ ENTRY is (fn-label num-mark definition)."
 
 (defun org-footnote-goto-local-insertion-point ()
   "Find insertion point for footnote, just before next outline heading."
-  (outline-next-heading)
+  (org-with-limited-levels (outline-next-heading))
   (or (bolp) (newline))
   (beginning-of-line 0)
   (while (and (not (bobp)) (= (char-after) ?#))
@@ -562,7 +566,7 @@ and all references of a footnote label."
 	(goto-char (point-min))
 	(and (re-search-forward (concat "^\\[" (regexp-quote label) "\\]")
 				nil t)
-	     (progn (insert " ") 
+	     (progn (insert " ")
 		    (just-one-space)))))))
 
 (provide 'org-footnote)

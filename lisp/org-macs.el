@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.28trans
+;; Version: 6.32trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -44,9 +44,13 @@
   `(and (boundp (quote ,var)) ,var))
 
 (defmacro org-unmodified (&rest body)
-  "Execute body without changing `buffer-modified-p'."
+  "Execute body without changing `buffer-modified-p'.
+Also, do not record undo information."
   `(set-buffer-modified-p
-    (prog1 (buffer-modified-p) ,@body)))
+    (prog1 (buffer-modified-p)
+      (let ((buffer-undo-list t)
+	    before-change-functions after-change-functions)
+	,@body))))
 
 (defmacro org-re (s)
   "Replace posix classes in regular expression."
@@ -67,7 +71,7 @@
 	 (_col (current-column)))
      (unwind-protect
 	 (progn ,@body)
-       (goto-line _line)
+       (org-goto-line _line)
        (org-move-to-column _col))))
 
 (defmacro org-without-partial-completion (&rest body)
@@ -98,6 +102,7 @@ We use a macro so that the test can happen at compilation time."
      (save-excursion
        (goto-char (or ,pom (point)))
        ,@body)))
+(put 'org-with-point-at 'lisp-indent-function 1)
 
 (defmacro org-no-warnings (&rest body)
   (cons (if (fboundp 'with-no-warnings) 'with-no-warnings 'progn) body))
@@ -113,9 +118,11 @@ We use a macro so that the test can happen at compilation time."
      ,@body))
 
 (defmacro org-if-unprotected-at (pos &rest body)
-  "Execute BODY if there is no `org-protected' text property at point-1."
+  "Execute BODY if there is no `org-protected' text property at POS."
   `(unless (get-text-property ,pos 'org-protected)
      ,@body))
+(put 'org-if-unprotected-at 'lisp-indent-function 1)
+
 
 (defmacro org-with-remote-undo (_buffer &rest _body)
   "Execute BODY while recording undo information in two buffers."
@@ -169,7 +176,7 @@ We use a macro so that the test can happen at compilation time."
 
 (defsubst org-check-external-command (cmd &optional use no-error)
   "Check if external progam CMD for USE exists, error if not.
-When the program does exist, return it's path.
+When the program does exist, return its path.
 When it does not exist and NO-ERROR is set, return nil.
 Otherwise, throw an error.  The optional argument USE can describe what this
 program is needed for, so that the error message can be more informative."
@@ -215,6 +222,12 @@ we turn off invisibility temporarily.  Use this in a `let' form."
     ;; works also in narrowed buffer, because we start at 1, not point-min
     (+ (if (bolp) 1 0) (count-lines 1 (point)))))
 
+(defsubst org-goto-line (N)
+  (save-restriction
+    (widen)
+    (goto-char (point-min))
+    (forward-line (1- N))))
+
 (defsubst org-current-line-string (&optional to-here)
   (buffer-substring (point-at-bol) (if to-here (point) (point-at-eol))))
 
@@ -255,6 +268,22 @@ This is in contrast to merely setting it to 0."
 					(match-beginning 0) string)))
   (replace-match newtext fixedcase literal string))
 
+(defmacro org-with-limited-levels (&rest body)
+  "Execute BODY with limited number of outline levels."
+  `(let* ((outline-regexp (org-get-limited-outline-regexp)))
+     ,@body))
+
+(defvar org-odd-levels-only) ; defined in org.el
+(defvar org-inlinetask-min-level) ; defined in org-inlinetask.el
+(defun org-get-limited-outline-regexp ()
+  "Return outline-regexp with limited number of levels.
+The number of levels is controlled by "
+  (if (or (not (org-mode-p)) (not (featurep 'org-inlinetask)))
+
+      outline-regexp
+    (let* ((limit-level (1- org-inlinetask-min-level))
+	   (nstars (if org-odd-levels-only (1- (* limit-level 2)) limit-level)))
+      (format "\\*\\{1,%d\\} " nstars))))
 
 (provide 'org-macs)
 
