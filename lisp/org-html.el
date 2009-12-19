@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.32trans
+;; Version: 6.33trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -160,7 +160,7 @@ your own style information."
   :group 'org-export-html
   :type 'boolean)
 ;;;###autoload
-(put 'org-export-html-style 'safe-local-variable 'booleanp)
+(put 'org-export-html-style-include-default 'safe-local-variable 'booleanp)
 
 (defcustom org-export-html-style ""
   "Org-wide style definitions for exported HTML files.
@@ -229,7 +229,7 @@ CSS classes, then this prefic can be very useful."
   :type 'string)
 
 (defcustom org-export-html-home/up-format
-  "<div style=\"text-align:right;font-size:70%%;white-space:nowrap;\">
+  "<div id=\"org-div-home-and-up\" style=\"text-align:right;font-size:70%%;white-space:nowrap;\">
  <a accesskey=\"h\" href=\"%s\"> UP </a>
  |
  <a accesskey=\"H\" href=\"%s\"> HOME </a>
@@ -507,7 +507,7 @@ in a window.  A non-interactive call will only return the buffer."
     (setq buffer "*Org HTML Export*"))
   (let ((transient-mark-mode t) (zmacs-regions t)
 	ext-plist rtn)
-    (setq ext-plist (plist-put ext-plist :ignore-subree-p t))
+    (setq ext-plist (plist-put ext-plist :ignore-subtree-p t))
     (goto-char end)
     (set-mark (point)) ;; to activate the region
     (goto-char beg)
@@ -539,6 +539,7 @@ the file header and footer, simply return the content of
 <body>...</body>, without even the body tags themselves.  When
 PUB-DIR is set, use this as the publishing directory."
   (interactive "P")
+  (run-hooks 'org-export-first-hook)
 
   ;; Make sure we have a file name when we need it.
   (when (and (not (or to-buffer body-only))
@@ -575,7 +576,7 @@ PUB-DIR is set, use this as the publishing directory."
 	 (rbeg (and region-p (region-beginning)))
 	 (rend (and region-p (region-end)))
 	 (subtree-p
-	  (if (plist-get opt-plist :ignore-subree-p)
+	  (if (plist-get opt-plist :ignore-subtree-p)
 	      nil
 	    (when region-p
 	      (save-excursion
@@ -624,7 +625,8 @@ PUB-DIR is set, use this as the publishing directory."
 	 (author      (plist-get opt-plist :author))
 	 (title       (or (and subtree-p (org-export-get-title-from-subtree))
 			  (plist-get opt-plist :title)
-			  (and (not
+			  (and (not body-only)
+			       (not
 				(plist-get opt-plist :skip-before-1st-heading))
 			       (org-export-grab-title-from-buffer))
 			  (and buffer-file-name
@@ -753,7 +755,6 @@ PUB-DIR is set, use this as the publishing directory."
 <html xmlns=\"http://www.w3.org/1999/xhtml\"
 lang=\"%s\" xml:lang=\"%s\">
 <head>
-%s
 <title>%s</title>
 <meta http-equiv=\"Content-Type\" content=\"text/html;charset=%s\"/>
 <meta name=\"generator\" content=\"Org-mode\"/>
@@ -765,6 +766,7 @@ lang=\"%s\" xml:lang=\"%s\">
 </head>
 <body>
 <div id=\"content\">
+%s
 "
 		 (format
 		  (or (and (stringp org-export-html-xml-declaration)
@@ -775,17 +777,17 @@ lang=\"%s\" xml:lang=\"%s\">
 		      "")
 		  (or charset "iso-8859-1"))
 		 language language
+		 (org-html-expand title)
+		 (or charset "iso-8859-1")
+		 date author description keywords
+		 style
 		 (if (or link-up link-home)
 		     (concat
 		      (format org-export-html-home/up-format
 			      (or link-up link-home)
 			      (or link-home link-up))
 		      "\n")
-		   "")
-		 (org-html-expand title)
-		 (or charset "iso-8859-1")
-		 date author description keywords
-		 style))
+		   "")))
 
         (org-export-html-insert-plist-item opt-plist :preamble opt-plist)
 
@@ -972,9 +974,12 @@ lang=\"%s\" xml:lang=\"%s\">
 		(setq line (concat line "\\\\")))))
 
 	  ;; make targets to anchors
+	  (setq start 0)
 	  (while (string-match
-		  "<<<?\\([^<>]*\\)>>>?\\((INVISIBLE)\\)?[ \t]*\n?" line)
+		  "<<<?\\([^<>]*\\)>>>?\\((INVISIBLE)\\)?[ \t]*\n?" line start)
 	    (cond
+	     ((get-text-property (match-beginning 1) 'org-protected line)
+	      (setq start (match-end 1)))
 	     ((match-end 2)
 	      (setq line (replace-match
 			  (format
@@ -985,16 +990,18 @@ lang=\"%s\" xml:lang=\"%s\">
 	     ((and org-export-with-toc (equal (string-to-char line) ?*))
 	      ;; FIXME: NOT DEPENDENT on TOC?????????????????????
 	      (setq line (replace-match
-			  (concat "@<span class=\"target\">" (match-string 1 line) "@</span> ")
-;			  (concat "@<i>" (match-string 1 line) "@</i> ")
+			  (concat "@<span class=\"target\">"
+				  (match-string 1 line) "@</span> ")
+			  ;; (concat "@<i>" (match-string 1 line) "@</i> ")
 			  t t line)))
 	     (t
 	      (setq line (replace-match
 			  (concat "@<a name=\""
 				  (org-solidify-link-text (match-string 1 line))
-				  "\" class=\"target\">" (match-string 1 line) "@</a> ")
+				  "\" class=\"target\">" (match-string 1 line)
+				  "@</a> ")
 			  t t line)))))
-
+	    
 	  (setq line (org-html-handle-time-stamps line))
 
 	  ;; replace "&" by "&amp;", "<" and ">" by "&lt;" and "&gt;"
@@ -1464,6 +1471,10 @@ lang=\"%s\" xml:lang=\"%s\">
 	  (delete-region beg end)
 	  (insert (format "<span style=\"visibility:hidden;\">%s</span>"
 			  (make-string n ?x)))))
+      ;; Remove empty lines at the beginning of the file.
+      (goto-char (point-min))
+      (when (looking-at "\\s-+\n") (replace-match ""))
+      ;; Run the hook
       (run-hooks 'org-export-html-final-hook)
       (or to-buffer (save-buffer))
       (goto-char (point-min))
@@ -1646,7 +1657,7 @@ lang=\"%s\" xml:lang=\"%s\">
     (unless splice (push "</table>\n" html))
     (setq html (nreverse html))
     (unless splice
-      ;; Put in col tags with the alignment (unfortuntely often ignored...)
+      ;; Put in col tags with the alignment (unfortunately often ignored...)
       (unless (car org-table-colgroup-info)
 	(setq org-table-colgroup-info
 	      (cons :start (cdr org-table-colgroup-info))))

@@ -70,10 +70,11 @@ variable names and the value to be used in the gnuplot code."
 
 (defun org-babel-execute:gnuplot (body params)
   "Execute a block of Gnuplot code with org-babel.  This function is
-called by `org-babel-execute-src-block' via multiple-value-bind."
+called by `org-babel-execute-src-block'."
   (message "executing Gnuplot source code block")
   (save-window-excursion
     (let* ((vars (org-babel-gnuplot-process-vars params))
+           (session (cdr (assoc :session params)))
            (out-file (cdr (assoc :file params)))
            (term (or (cdr (assoc :term params))
                      (when out-file (file-name-extension out-file))))
@@ -119,6 +120,12 @@ called by `org-babel-execute-src-block' via multiple-value-bind."
         (add-to-body (mapconcat
                       (lambda (pair) (format "%s = \"%s\"" (car pair) (cdr pair)))
                       vars "\n"))
+        ;; replace any variable names preceded by '$' with the actual
+        ;; value of the variable
+        (mapc (lambda (pair)
+                (setq body (replace-regexp-in-string
+                            (format "\\$%s" (car pair)) (cdr pair) body)))
+              vars)
         ;; evaluate the code body with gnuplot
         (if (string= session "none")
             (let ((script-file (make-temp-file "org-babel-gnuplot-script")))

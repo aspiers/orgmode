@@ -59,8 +59,9 @@
 names, and the emacs-lisp representation of the related value."
   (let ((assignments
 	 (delq nil (mapcar (lambda (pair) (if (eq (car pair) :var) (cdr pair))) params)))
-	(other-params (assq-delete-all :var params)))
-    (mapcar (lambda (assignment) (org-babel-ref-parse assignment other-params)) assignments)))
+	(others
+         (delq nil (mapcar (lambda (pair) (unless (eq :var (car pair)) pair)) params))))
+    (mapcar (lambda (assignment) (org-babel-ref-parse assignment others)) assignments)))
 
 (defvar org-babel-ref-split-regexp
   "[ \f\t\n\r\v]*\\(.+?\\)[ \f\t\n\r\v]*=[ \f\t\n\r\v]*\\(.+\\)[ \f\t\n\r\v]*")
@@ -95,7 +96,12 @@ return nil."
   "Resolve the reference and return its value"
   (save-excursion
     (let ((case-fold-search t)
-          type args new-refere new-referent result lob-info split-file split-ref)
+          type args new-refere new-referent result lob-info split-file split-ref
+          index index-row index-col)
+      ;; if ref is indexed grab the indices
+      (when (string-match "\\[\\(.+\\)\\]" ref)
+        (setq index (match-string 1 ref))
+        (setq ref (substring ref 0 (match-beginning 0))))
       ;; assign any arguments to pass to source block
       (when (string-match "^\\(.+?\\)\(\\(.*\\)\)$" ref)
         (setq new-refere (match-string 1 ref))
@@ -112,9 +118,9 @@ return nil."
         (setq split-ref (match-string 2 ref))
         (find-file split-file) (setq ref split-ref))
       (goto-char (point-min))
-      (if (let ((result_regexp (concat "^#\\+\\(TBL\\|RES\\)NAME:[ \t]*"
+      (if (let ((result_regexp (concat "^#\\+\\(TBLNAME\\|RESNAME\\|RESULTS\\):[ \t]*"
                                        (regexp-quote ref) "[ \t]*$"))
-                (regexp (concat "^#\\+SRCNAME:[ \t]*"
+                (regexp (concat org-babel-source-name-regexp
                                 (regexp-quote ref) "\\(\(.*\)\\)?" "[ \t]*$")))
             ;; goto ref in the current buffer
             (or (and (not args)
@@ -139,14 +145,39 @@ return nil."
           (beginning-of-line)
           (if (or (= (point) (point-min)) (= (point) (point-max)))
               (error "reference not found"))))
-      (setq params (org-babel-merge-params params args))
+      (setq params (org-babel-merge-params params args '((:results . "silent"))))
       (setq result
 	    (case type
 	      ('results-line (org-babel-read-result))
 	      ('table (org-babel-read-table))
-	      ('source-block (org-babel-execute-src-block t nil params))
-	      ('lob (org-babel-execute-src-block t lob-info params))))
-      (if (symbolp result) (format "%S" result) result))))
+	      ('source-block (org-babel-execute-src-block nil nil params))
+	      ('lob (org-babel-execute-src-block nil lob-info params))))
+      (if (symbolp result)
+          (format "%S" result)
+        (if (and index (listp result))
+            (org-babel-ref-index-list index result)
+          result)))))
+
+(defun org-babel-ref-index-list (index lis)
+  "Return the subset of LIS indexed by INDEX.  If INDEX is
+separated by ,s then each PORTION is assumed to index into the
+next deepest nesting or dimension.  A valid PORTION can consist
+of either an integer index, or two integers separated by a : in
+which case the entire range is returned."
+  (if (string-match "^,?\\([^,]+\\)" index)
+      (let ((length (length lis))
+            (portion (match-string 1 index))
+            (remainder (substring index (match-end 0))))
+        (flet ((wrap (num) (if (< num 0) (+ length num) num)))
+          (mapcar
+           (lambda (sub-lis) (org-babel-ref-index-list remainder sub-lis))
+           (if (string-match "\\([-[:digit:]]+\\):\\([-[:digit:]]+\\)" portion)
+               (mapcar (lambda (n) (nth n lis))
+                       (number-sequence
+                        (wrap (string-to-number (match-string 1 portion)))
+                        (wrap (string-to-number (match-string 2 portion)))))
+             (list (nth (wrap (string-to-number portion)) lis))))))
+    lis))
 
 (defun org-babel-ref-split-args (arg-string)
   "Split ARG-STRING into top-level arguments of balanced parenthesis."
@@ -171,7 +202,7 @@ of the supported reference types are found.  Supported reference
 types are tables and source blocks."
   (cond ((org-at-table-p) 'table)
         ((looking-at "^#\\+BEGIN_SRC") 'source-block)
-        ((looking-at "^#\\+RESNAME:") 'results-line)))
+        ((looking-at org-babel-result-regexp) 'results-line)))
 
 (provide 'org-babel-ref)
 ;;; org-babel-ref.el ends here

@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.32trans
+;; Version: 6.33trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -392,25 +392,32 @@ When CHECK is given, prepare detailed information about duplicate IDs."
   (interactive)
   (if (not org-id-track-globally)
       (error "Please turn on `org-id-track-globally' if you want to track IDs")
-    (let ((files
-	   (or files
-	       (append
-		;; Agenda files and all associated archives
-		(org-agenda-files t org-id-search-archives)
-		;; Explicit extra files
-		(if (symbolp org-id-extra-files)
-		    (symbol-value org-id-extra-files)
-		  org-id-extra-files)
+    (let* ((org-id-search-archives
+	    (or org-id-search-archives
+		(and (symbolp org-id-extra-files)
+		     (symbol-value org-id-extra-files)
+		     (member 'agenda-archives org-id-extra-files))))
+	   (files
+	    (or files
+		(append
+		 ;; Agenda files and all associated archives
+		 (org-agenda-files t org-id-search-archives)
+		 ;; Explicit extra files
+		 (if (symbolp org-id-extra-files)
+		     (symbol-value org-id-extra-files)
+		   org-id-extra-files)
 	      ;; Files associated with live org-mode buffers
-		(delq nil
-		      (mapcar (lambda (b)
-				(with-current-buffer b
-				  (and (org-mode-p) (buffer-file-name))))
-			      (buffer-list)))
-		;; All files known to have IDs
-		org-id-files)))
-	  org-agenda-new-buffers
-	  file nfiles tfile ids reg found id seen (ndup 0))
+		 (delq nil
+		       (mapcar (lambda (b)
+				 (with-current-buffer b
+				   (and (org-mode-p) (buffer-file-name))))
+			       (buffer-list)))
+		 ;; All files known to have IDs
+		 org-id-files)))
+	   org-agenda-new-buffers
+	   file nfiles tfile ids reg found id seen (ndup 0))
+      (when (member 'agenda-archives files)
+	(setq files (delq 'agenda-archives (copy-sequence files))))
       (setq nfiles (length files))
       (while (setq file (pop files))
 	(message "Finding ID locations (%d/%d files): %s"
@@ -430,12 +437,14 @@ When CHECK is given, prepare detailed information about duplicate IDs."
 		  (if (member id found)
 		      (progn
 			(message "Duplicate ID \"%s\", also in file %s"
-				 id (car (delq
-					  nil
-					  (mapcar
-					   (lambda (x)
-					     (if (member id (cdr x)) (car x)))
-					   reg))))
+				 id (or (car (delq
+					      nil
+					      (mapcar
+					       (lambda (x)
+						 (if (member id (cdr x))
+						     (car x)))
+					       reg)))
+					(buffer-file-name)))
 			(when (= ndup 0)
 			  (ding)
 			  (sit-for 2))
@@ -457,7 +466,7 @@ When CHECK is given, prepare detailed information about duplicate IDs."
 
 (defun org-id-locations-save ()
   "Save `org-id-locations' in `org-id-locations-file'."
-  (when org-id-track-globally
+  (when (and org-id-track-globally org-id-locations)
     (let ((out (if (hash-table-p org-id-locations)
 		   (org-id-hash-to-alist org-id-locations)
 		 org-id-locations)))
@@ -567,6 +576,7 @@ optional argument MARKERP, return the position as a new marker."
   "Store a link to the current entry, using its ID."
   (interactive)
   (let* ((link (org-make-link "id:" (org-id-get-create)))
+	 (case-fold-search nil)
 	 (desc (save-excursion
 		 (org-back-to-heading t)
 		 (or (and (looking-at org-complex-heading-regexp)

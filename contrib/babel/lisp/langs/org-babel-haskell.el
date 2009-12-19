@@ -55,13 +55,13 @@
 (defvar org-babel-haskell-eoe "\"org-babel-haskell-eoe\"")
 
 (defun org-babel-execute:haskell (body params)
-  "Execute a block of Haskell code with org-babel.  This function
-is called by `org-babel-execute-src-block' with the following
-variables pre-set using `multiple-value-bind'.
-
-  (session vars result-params result-type)"
+  "Execute a block of Haskell code with org-babel."
   (message "executing haskell source code block")
-  (let* ((full-body (concat
+  (let* ((processed-params (org-babel-process-params params))
+         (session (first processed-params))
+         (vars (second processed-params))
+         (result-type (fourth processed-params))
+         (full-body (concat
                      (mapconcat
                       (lambda (pair) (format "let %s = %s;" (car pair) (cdr pair)))
                       vars "\n") "\n" body "\n"))
@@ -153,6 +153,7 @@ constructs (header arguments, no-web syntax etc...) are ignored."
          (lhs-file (concat base-name ".lhs"))
          (tex-file (concat base-name ".tex"))
          (command (concat org-babel-haskell-lhs2tex-command " " lhs-file " > " tex-file))
+         (preserve-indentp org-src-preserve-indentation)
          indentation)
     ;; escape haskell source-code blocks
     (with-temp-file tmp-org-file
@@ -160,10 +161,14 @@ constructs (header arguments, no-web syntax etc...) are ignored."
       (goto-char (point-min))
       (while (re-search-forward haskell-regexp nil t)
         (save-match-data (setq indentation (length (match-string 1))))
-        (replace-match (save-match-data (concat
-                                         "#+begin_latex\n\\begin{code}\n"
-                                         (org-remove-indentation (match-string 3))
-                                         "\n\\end{code}\n#+end_latex\n"))
+        (replace-match (save-match-data
+                         (concat
+                          "#+begin_latex\n\\begin{code}\n"
+                          (if (or preserve-indentp
+                                  (string-match "-i" (match-string 2)))
+                              (match-string 3)
+                            (org-remove-indentation (match-string 3)))
+                          "\n\\end{code}\n#+end_latex\n"))
                        t t)
         (indent-code-rigidly (match-beginning 0) (match-end 0) indentation)))
     (save-excursion

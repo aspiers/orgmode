@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.32trans
+;; Version: 6.33trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -181,7 +181,7 @@ This can be overruled locally using the CLOCK_MODELINE_TOTAL property.
 Allowed values are:
 
 current  Only the time in the current instance of the clock
-today    All time clocked inot this task today
+today    All time clocked into this task today
 repeat   All time clocked into this task since last repeat
 all      All time ever recorded for this task
 auto     Automatically, either `all', or `repeat' for repeating tasks"
@@ -246,7 +246,7 @@ to add an effort property.")
 
 (defvar org-clock-mode-line-timer nil)
 (defvar org-clock-idle-timer nil)
-(defvar org-clock-heading "")
+(defvar org-clock-heading) ; defined in org.el
 (defvar org-clock-heading-for-remember "")
 (defvar org-clock-start-time "")
 
@@ -339,6 +339,7 @@ of a different task.")
 		    (if (< i 10)
 			(+ i ?0)
 		      (+ i (- ?A 10))) m))
+	   (if (fboundp 'int-to-char) (setf (car s) (int-to-char (car s))))
 	   (push s sel-list)))
        org-clock-history)
       (org-fit-window-to-buffer)
@@ -360,21 +361,22 @@ pointing to it."
 	(save-excursion
 	  (save-restriction
 	    (widen)
-	    (goto-char marker)
-	    (setq file (buffer-file-name (marker-buffer marker))
-		  cat (or (org-get-category)
-			  (progn (org-refresh-category-properties)
-				 (org-get-category)))
-		  heading (org-get-heading 'notags)
-		  prefix (save-excursion
-			   (org-back-to-heading t)
-			   (looking-at "\\*+ ")
-			   (match-string 0))
-		  task (substring
-			(org-fontify-like-in-org-mode
-			 (concat prefix heading)
-			 org-odd-levels-only)
-			(length prefix))))))
+	    (ignore-errors
+	      (goto-char marker)
+	      (setq file (buffer-file-name (marker-buffer marker))
+		    cat (or (org-get-category)
+			    (progn (org-refresh-category-properties)
+				   (org-get-category)))
+		    heading (org-get-heading 'notags)
+		    prefix (save-excursion
+			     (org-back-to-heading t)
+			     (looking-at "\\*+ ")
+			     (match-string 0))
+		    task (substring
+			  (org-fontify-like-in-org-mode
+			   (concat prefix heading)
+			   org-odd-levels-only)
+			  (length prefix)))))))
       (when (and cat task)
 	(insert (format "[%c] %-15s %s\n" i cat task))
 	(cons i marker)))))
@@ -423,8 +425,8 @@ previous clocking intervals."
 
 (defun org-clock-modify-effort-estimate (&optional value)
  "Add to or set the effort estimate of the item currently being clocked.
-VALUE can be a number of minutes, or a string with forat hh:mm or mm.
-WHen the strig starts with a + or a - sign, the current value of the effort
+VALUE can be a number of minutes, or a string with format hh:mm or mm.
+When the string starts with a + or a - sign, the current value of the effort
 property will be changed by that amount.
 This will update the \"Effort\" property of currently clocked item, and
 the mode line."
@@ -491,7 +493,7 @@ use libnotify if available, or fall back on a message."
 			"notify-send" notification))
 	;; Maybe the handler will send a message, so only use message as
 	;; a fall back option
-	(t (message notification))))
+	(t (message "%s" notification))))
 
 (defun org-clock-play-sound ()
   "Play sound as configured by `org-clock-sound'.
@@ -500,13 +502,14 @@ Use alsa's aplay tool if available."
    ((not org-clock-sound))
    ((eq org-clock-sound t) (beep t) (beep t))
    ((stringp org-clock-sound)
-    (if (file-exists-p org-clock-sound)
-	(if (org-program-exists "aplay")
-	    (start-process "org-clock-play-notification" nil
-			   "aplay" org-clock-sound)
-	  (condition-case nil
-	      (play-sound-file org-clock-sound)
-	    (error (beep t) (beep t))))))))
+    (let ((file (expand-file-name org-clock-sound)))
+      (if (file-exists-p file)
+	  (if (org-program-exists "aplay")
+	      (start-process "org-clock-play-notification" nil
+			     "aplay" file)
+	    (condition-case nil
+		(play-sound-file file)
+	      (error (beep t) (beep t)))))))))
 
 (defun org-program-exists (program-name)
   "Checks whenever we can locate program and launch it."
@@ -677,29 +680,38 @@ was started."
 	  (save-window-excursion
 	    (save-excursion
 	      (unless org-clock-resolving-clocks-due-to-idleness
-		(org-with-clock clock
-		  (org-clock-goto))
+		(org-with-clock clock (org-clock-goto))
 		(with-current-buffer (marker-buffer (car clock))
 		  (goto-char (car clock))
 		  (if org-clock-into-drawer
-		      (ignore-errors
-			(outline-flag-region (save-excursion
-					       (outline-back-to-heading t)
-					       (search-forward ":LOGBOOK:")
-					       (goto-char (match-beginning 0)))
-					     (save-excursion
-					       (outline-back-to-heading t)
-					       (search-forward ":LOGBOOK:")
-					       (search-forward ":END:")
-					       (goto-char (match-end 0)))
-					     nil)))))
+		      (let ((logbook
+			     (if (stringp org-clock-into-drawer)
+				 (concat ":" org-clock-into-drawer ":")
+			       ":LOGBOOK:")))
+			(ignore-errors
+			  (outline-flag-region
+			   (save-excursion
+			     (outline-back-to-heading t)
+			     (search-forward logbook)
+			     (goto-char (match-beginning 0)))
+			   (save-excursion
+			     (outline-back-to-heading t)
+			     (search-forward logbook)
+			     (search-forward ":END:")
+			     (goto-char (match-end 0)))
+			   nil))))))
 	      (let (char-pressed)
-		(while (null char-pressed)
-		  (setq char-pressed
-			(read-char (concat (funcall prompt-fn clock)
-					   " [(kK)eep (sS)ubtract (C)ancel]? ")
-				   nil 45)))
-		char-pressed))))
+		(if (featurep 'xemacs)
+		    (progn
+		      (message (concat (funcall prompt-fn clock)
+				       " [(kK)eep (sS)ubtract (C)ancel]? "))
+		      (setq char-pressed (read-char-exclusive)))
+		  (while (null char-pressed)
+		    (setq char-pressed
+			  (read-char (concat (funcall prompt-fn clock)
+					     " [(kK)eep (sS)ubtract (C)ancel]? ")
+				     nil 45)))
+		  char-pressed)))))
 	 (default (floor (/ (org-float-time
 			     (time-subtract (current-time) last-valid)) 60)))
 	 (keep (and (memq ch '(?k ?K))
@@ -796,6 +808,9 @@ so long."
   (when (and org-clock-idle-time (not org-clock-resolving-clocks)
 	     org-clock-marker)
     (let ((org-clock-user-idle-seconds (org-user-idle-seconds))
+	  (org-clock-user-idle-start
+	   (time-subtract (current-time)
+			  (seconds-to-time org-clock-user-idle-seconds)))
 	  (org-clock-resolving-clocks-due-to-idleness t))
       (if (> org-clock-user-idle-seconds (* 60 org-clock-idle-time))
 	  (org-clock-resolve
@@ -803,10 +818,12 @@ so long."
 		 org-clock-start-time)
 	   (function
 	    (lambda (clock)
-	      (format "Clocked in & idle for %d mins"
-		      (/ org-clock-user-idle-seconds 60))))
-	   (time-subtract (current-time)
-			  (seconds-to-time org-clock-user-idle-seconds)))))))
+	      (format "Clocked in & idle for %.1f mins"
+		      (/ (org-float-time
+			  (time-subtract (current-time)
+					 org-clock-user-idle-start))
+			 60.0))))
+	   org-clock-user-idle-start)))))
 
 (defun org-clock-in (&optional select)
   "Start the clock on the current item.

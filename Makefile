@@ -29,8 +29,7 @@ infodir = $(prefix)/share/info
 # Using emacs in batch mode.
 
 BATCH=$(EMACS) -batch -q -no-site-file -eval                             \
-  "(progn (add-to-list (quote load-path) \"$(lispdir)\") \
- 	  (add-to-list (quote load-path) (expand-file-name \"./lisp/\")))"
+  "(progn (add-to-list (quote load-path) \"$(lispdir)\") (add-to-list (quote load-path) (expand-file-name \"./lisp/\")))"
 
 # Specify the byte-compiler for compiling org-mode files
 ELC= $(BATCH) -f batch-byte-compile
@@ -64,18 +63,22 @@ LISPF      = 	org.el			\
 	     	org-attach.el		\
 	     	org-archive.el		\
 		org-bbdb.el		\
+		org-beamer.el		\
 		org-bibtex.el		\
 	     	org-clock.el		\
 	     	org-colview.el		\
 	     	org-colview-xemacs.el	\
 	     	org-compat.el		\
 	     	org-crypt.el		\
+	     	org-datetree.el		\
+	     	org-docview.el		\
 		org-exp.el		\
 		org-exp-blocks.el	\
 		org-docbook.el		\
 		org-faces.el		\
 		org-feed.el		\
 		org-footnote.el		\
+		org-freemind.el		\
 		org-gnus.el		\
 		org-habit.el		\
 		org-html.el		\
@@ -210,7 +213,7 @@ doc/orgcard_letter.ps: doc/orgcard_letter.dvi
 # Below here are special targets for maintenance only
 
 updateweb:
-	ssh cdominik@caprisun.dreamhost.com 'pull-worg-org.sh && publish-worg-org.sh'
+	ssh cdominik@orgmode.org 'pull-worg-org.sh && publish-worg-org.sh'
 
 html: doc/org.html
 
@@ -266,12 +269,6 @@ upload_release:
 upload_manual:
 	rsync -avuz --delete doc/manual/ cdominik@orgmode.org:orgmode.org/manual/
 
-snap:
-	${MAKE} release TAG=snapshot
-	scp RELEASEDIR/org-snapshot.zip cdominik@orgmode.org:orgmode.org/
-	scp RELEASEDIR/org-snapshot.tar.gz cdominik@orgmode.org:orgmode.org/
-	${MAKE} cleanrel
-
 relup0:
 	${MAKE} release
 	${MAKE} upload_release
@@ -299,7 +296,7 @@ cleandoc:
 cleanrel:
 	rm -rf RELEASEDIR
 	rm -rf org-6.*
-	rm -rf org-6*zip org-6*tar.gz org-snapshot*
+	rm -rf org-6*zip org-6*tar.gz
 
 clean:
 	${MAKE} cleanelc
@@ -337,21 +334,26 @@ lisp/org-ascii.elc:	lisp/org-exp.el
 lisp/org-attach.elc:	lisp/org.el lisp/org-id.el
 lisp/org-archive.elc:	lisp/org.el
 lisp/org-bbdb.elc:	lisp/org.el
+lisp/org-beamer.elc:	lisp/org.el
 lisp/org-bibtex.elc:	lisp/org.el
 lisp/org-clock.elc:	lisp/org.el
 lisp/org-colview.elc:	lisp/org.el
 lisp/org-colview-xemacs.elc:	lisp/org.el
 lisp/org-compat.elc:	lisp/org-macs.el
 lisp/org-crypt.elc:	lisp/org-crypt.el lisp/org.el
+lisp/org-datetree.elc:	lisp/org.el
+lisp/org-docview.elc:	lisp/org.el
 lisp/org-exp.elc:	lisp/org.el lisp/org-agenda.el
 lisp/org-exp-blocks.elc: lisp/org.el
-lisp/org-latex.elc:	lisp/org.el lisp/org-exp.el
+lisp/org-latex.elc:	lisp/org.el lisp/org-exp.el lisp/org-beamer.el
 lisp/org-docbook.elc:	lisp/org.el lisp/org-exp.el
 lisp/org-faces.elc:	lisp/org-macs.el lisp/org-compat.el
 lisp/org-feed.elc:	lisp/org.el
 lisp/org-footnotes.elc:	lisp/org-macs.el lisp/org-compat.el
+lisp/org-freemind.elc:	lisp/org.el
 lisp/org-gnus.elc:	lisp/org.el
 lisp/org-html.elc:	lisp/org-exp.el
+lisp/org-habit.elc:	lisp/org.el lisp/org-agenda.el
 lisp/org-icalendar.elc:	lisp/org-exp.el
 lisp/org-id.elc:	lisp/org.el
 lisp/org-indent.elc:	lisp/org.el lisp/org-macs.el lisp/org-compat.el

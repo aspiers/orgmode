@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.32trans
+;; Version: 6.33trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -35,8 +35,7 @@
 (declare-function org-inlinetask-remove-END-maybe "org-inlinetask" ())
 
 (defcustom org-archive-default-command 'org-archive-subtree
-  "The default archiving command.
-Currently this is only used by org-mobile.el."
+  "The default archiving command."
   :group 'org-archive
   :type '(choice
 	  (const org-archive-subtree)
@@ -304,12 +303,7 @@ this heading."
 
 	  ;; Save and kill the buffer, if it is not the same buffer.
 	  (when (not (eq this-buffer buffer))
-	    (save-buffer)
-	    ;; Check if it is OK to kill the buffer
-	    (unless
-		(or visiting
-		    (equal (marker-buffer org-clock-marker) (current-buffer)))
-	      (kill-buffer buffer)))
+	    (save-buffer))
 	  ))
       ;; Here we are back in the original buffer.  Everything seems to have
       ;; worked.  So now cut the tree and finish up.
@@ -395,7 +389,8 @@ When TAG is non-nil, don't move trees, but mark them with the ARCHIVE tag."
 	(progn
 	  (setq re1 (concat "^" (regexp-quote
 				 (make-string
-				  (1+ (- (match-end 0) (match-beginning 0) 1))
+				  (+ (- (match-end 0) (match-beginning 0) 1)
+				     (if org-odd-levels-only 2 1))
 				  ?*))
 			    " "))
 	  (move-marker begm (point))
@@ -448,6 +443,15 @@ the children that do not contain any open TODO items."
 This command is set with the variable `org-archive-default-command'."
   (interactive)
   (call-interactively org-archive-default-command))
+
+;;;###autoload
+(defun org-archive-subtree-default-with-confirmation ()
+  "Archive the current subtree with the default command.
+This command is set with the variable `org-archive-default-command'."
+  (interactive)
+  (if (y-or-n-p "Archive this subtree or entry? ")
+      (call-interactively org-archive-default-command)
+    (error "Abort")))
 
 (provide 'org-archive)
 

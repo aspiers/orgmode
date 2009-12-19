@@ -38,17 +38,23 @@
 
 (defun org-babel-execute:python (body params)
   "Execute a block of Python code with org-babel.  This function is
-called by `org-babel-execute-src-block' via multiple-value-bind."
+called by `org-babel-execute-src-block'."
   (message "executing Python source code block")
-  (let ((full-body (concat
-		    (mapconcat ;; define any variables
-		     (lambda (pair)
-		       (format "%s=%s"
-			       (car pair)
-			       (org-babel-python-var-to-python (cdr pair))))
-		     vars "\n") "\n" (org-babel-trim body) "\n")) ;; then the source block body
-	(session (org-babel-python-initiate-session session)))
-    (org-babel-python-evaluate session full-body result-type)))
+  (let* ((processed-params (org-babel-process-params params))
+         (session (org-babel-python-initiate-session (first processed-params)))
+         (vars (second processed-params))
+         (result-params (third processed-params))
+         (result-type (fourth processed-params))
+         (full-body (concat
+                     (mapconcat ;; define any variables
+                      (lambda (pair)
+                        (format "%s=%s"
+                                (car pair)
+                                (org-babel-python-var-to-python (cdr pair))))
+                      vars "\n") "\n" (org-babel-trim body) "\n")) ;; then the source block body
+         
+         (result (org-babel-python-evaluate session full-body result-type)))
+    (or (cdr (assoc :file params)) result)))
 
 (defun org-babel-prep-session:python (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS."
@@ -154,13 +160,10 @@ last statement in BODY, as elisp."
 		 (if (member "pp" result-params)
                      org-babel-python-pp-wrapper-method
                    org-babel-python-wrapper-method)
-		 (let ((lines (split-string
-			       (org-remove-indentation (org-babel-trim body)) "[\r\n]")))
-		   (concat
-		    (mapconcat
-		     (lambda (line) (format "\t%s" line))
-		     (butlast lines) "\n")
-		    (format "\n\treturn %s" (last lines))))
+		 (mapconcat
+		  (lambda (line) (format "\t%s" line))
+		  (split-string
+		   (org-remove-indentation (org-babel-trim body)) "[\r\n]") "\n")
 		 tmp-file))
                ;; (message "buffer=%s" (buffer-string)) ;; debugging
                (shell-command-on-region (point-min) (point-max) "python"))

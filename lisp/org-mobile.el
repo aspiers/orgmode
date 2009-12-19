@@ -4,7 +4,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.32trans
+;; Version: 6.33trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -42,7 +42,7 @@
 
 (defcustom org-mobile-files '(org-agenda-files)
   "Files to be staged for MobileOrg.
-This is basically a list of filesand directories.  Files will be staged
+This is basically a list of files and directories.  Files will be staged
 directly.  Directories will be search for files with the extension `.org'.
 In addition to this, the list may also contain the following symbols:
 
@@ -84,6 +84,22 @@ Relative to `org-mobile-directory'.  The Address field in the MobileOrg setup
 should point to this file."
   :group 'org-mobile
   :type 'file)
+
+(defcustom org-mobile-agendas 'all
+  "The agendas that should be pushed to MobileOrg.
+Allowed values:
+
+default  the weekly agenda and the global TODO list
+custom   all custom agendas defined by the user
+all      the custom agendas and the default ones
+list     a list of selection key(s) as string."
+  :group 'org-mobile
+  :type '(choice
+	  (const :tag "Default Agendas" default)
+	  (const :tag "Custom Agendas" custom)
+	  (const :tag "Default and Custom Agendas" all)
+	  (repeat :tag "Selected"
+		  (string :tag "Selection Keys"))))
 
 (defcustom org-mobile-force-id-on-agenda-items t
   "Non-nil means make all agenda items carry and ID."
@@ -166,7 +182,7 @@ capture file `mobileorg.org' back to the WebDAV directory, for example
 using `rsync' or `scp'.")
 
 (defvar org-mobile-last-flagged-files nil
-  "List of files containing entreis flagged in the latest pull.")
+  "List of files containing entries flagged in the latest pull.")
 
 (defvar org-mobile-files-alist nil)
 (defvar org-mobile-checksum-files nil)
@@ -177,19 +193,27 @@ using `rsync' or `scp'.")
 
 (defun org-mobile-files-alist ()
   "Expand the list in `org-mobile-files' to a list of existing files."
-  (let* ((files
-	  (apply 'append (mapcar
-			  (lambda (f)
-			    (cond
-			     ((eq f 'org-agenda-files) (org-agenda-files t))
-			     ((eq f 'org-agenda-text-search-extra-files)
-			      org-agenda-text-search-extra-files)
-			     ((and (stringp f) (file-directory-p f))
-			      (directory-files f 'full "\\.org\\'"))
-			     ((and (stringp f) (file-exists-p f))
-			      (list f))
-			     (t nil)))
-			  org-mobile-files)))
+  (let* ((include-archives
+	  (and (member 'org-agenda-text-search-extra-files org-mobile-files)
+	       (member 'agenda-archives	org-agenda-text-search-extra-files)
+	       t))
+	 (files
+	  (apply 'append
+		 (mapcar
+		  (lambda (f)
+		    (cond
+		     ((eq f 'org-agenda-files)
+		      (org-agenda-files	t include-archives))
+		     ((eq f 'org-agenda-text-search-extra-files)
+		      (delq 'agenda-archives
+			    (copy-sequence
+			     org-agenda-text-search-extra-files)))
+		     ((and (stringp f) (file-directory-p f))
+		      (directory-files f 'full "\\.org\\'"))
+		     ((and (stringp f) (file-exists-p f))
+		      (list f))
+		     (t nil)))
+		  org-mobile-files)))
 	 (orgdir-uname (file-name-as-directory (file-truename org-directory)))
 	 (orgdir-re (concat "\\`" (regexp-quote orgdir-uname)))
 	 uname seen rtn file link-name)
@@ -213,16 +237,41 @@ using `rsync' or `scp'.")
 This will create the index file, copy all agenda files there, and also
 create all custom agenda views, for upload to the mobile phone."
   (interactive)
-  (org-mobile-check-setup)
-  (org-mobile-prepare-file-lists)
-  (run-hooks 'org-mobile-pre-push-hook)
-  (org-mobile-create-sumo-agenda)
-  (org-save-all-org-buffers) ; to save any IDs created by this process
-  (org-mobile-copy-agenda-files)
-  (org-mobile-create-index-file)
-  (org-mobile-write-checksums)
-  (run-hooks 'org-mobile-post-push-hook)
+  (let ((a-buffer (get-buffer org-agenda-buffer-name)))
+    (let ((org-agenda-buffer-name "*SUMO*")
+	  (org-agenda-filter org-agenda-filter)
+	  (org-agenda-redo-command org-agenda-redo-command))
+      (save-excursion
+	(save-window-excursion
+	  (org-mobile-check-setup)
+	  (org-mobile-prepare-file-lists)
+	  (run-hooks 'org-mobile-pre-push-hook)
+	  (message "Creating agendas...")
+	  (let ((inhibit-redisplay t)) (org-mobile-create-sumo-agenda))
+	  (message "Creating agendas...done")
+	  (org-save-all-org-buffers) ; to save any IDs created by this process
+	  (message "Copying files...")
+	  (org-mobile-copy-agenda-files)
+	  (message "Writing index file...")
+	  (org-mobile-create-index-file)
+	  (message "Writing checksums...")
+	  (org-mobile-write-checksums)
+	  (run-hooks 'org-mobile-post-push-hook))))
+    (redraw-display)
+    (when (and a-buffer (buffer-live-p a-buffer))
+      (if (not (get-buffer-window a-buffer))
+	  (kill-buffer a-buffer)
+	(let ((cw (selected-window)))
+	  (select-window (get-buffer-window a-buffer))
+	  
+	  (org-agenda-redo)
+	  (select-window cw)))))
   (message "Files for mobile viewer staged"))
+  
+(defvar org-mobile-before-process-capture-hook nil
+  "Hook that is run after content was moved to `org-mobile-inbox-for-pull'.
+The inbox file is in the current buffer, and the buffer is arrowed to the
+new captured data.")
 
 ;;;###autoload
 (defun org-mobile-pull ()
@@ -236,6 +285,10 @@ agenda view showing the flagged items."
     (if (not (markerp insertion-marker))
 	(message "No new items")
       (org-with-point-at insertion-marker
+	(save-restriction
+	  (narrow-to-region (point) (point-max))
+	  (run-hooks 'org-mobile-before-process-capture-hook)))
+      (org-with-point-at insertion-marker
 	(org-mobile-apply (point) (point-max)))
       (move-marker insertion-marker nil)
       (run-hooks 'org-mobile-post-pull-hook)
@@ -243,7 +296,7 @@ agenda view showing the flagged items."
 	;; Make an agenda view of flagged entries, but only in the files
 	;; where stuff has been added.
 	(put 'org-agenda-files 'org-restrict org-mobile-last-flagged-files)
-	(let ((org-agenda-keep-restriced-file-list t))
+	(let ((org-agenda-keep-restricted-file-list t))
 	  (org-agenda nil "?"))))))
 
 (defun org-mobile-check-setup ()
@@ -372,6 +425,7 @@ The table of checksums is written to the file mobile-checksums."
 	(files org-mobile-checksum-files)
 	entry file sum)
     (with-temp-file sumfile
+      (set-buffer-file-coding-system 'undecided-unix nil)
       (while (setq entry (pop files))
 	(setq file (car entry) sum (cdr entry))
 	(insert (format "%s  %s\n" sum file))))))
@@ -388,8 +442,22 @@ The table of checksums is written to the file mobile-checksums."
 			((not (nth 1 x)) (cons (car x) (cons "" (cddr x))))
 			(t (cons (car x) (cons "" (cdr x))))))
 		org-agenda-custom-commands)))
-	new e key desc type match settings cmds gkey gdesc gsettings cnt)
-    (while (setq e (pop custom-list))
+	(default-list '(("a" "Agenda" agenda) ("t" "All TODO" alltodo)))
+	thelist	new e key desc type match settings cmds gkey gdesc gsettings cnt)
+    (cond
+     ((eq org-mobile-agendas 'custom)
+      (setq thelist custom-list))
+     ((eq org-mobile-agendas 'default)
+      (setq thelist default-list))
+     ((eq org-mobile-agendas 'all)
+      (setq thelist custom-list)
+      (unless (assoc "t" thelist) (push '("t" "ALL TODO" alltodo) thelist))
+      (unless (assoc "a" thelist) (push '("a" "Agenda" agenda) thelist)))
+     ((listp org-mobile-agendas)
+      (setq thelist (append custom-list default-list))
+      (setq thelist (delq nil (mapcar (lambda (k) (assoc k thelist))
+				      org-mobile-agendas)))))
+    (while (setq e (pop thelist))
       (cond
        ((stringp (cdr e))
 	;; this is a description entry - skip it
@@ -400,7 +468,7 @@ The table of checksums is written to the file mobile-checksums."
        ((memq (nth 2 e) '(todo-tree tags-tree occur-tree))
 	;; These are trees, not really agenda commands
 	)
-       ((memq (nth 2 e) '(agenda todo tags))
+       ((memq (nth 2 e) '(agenda alltodo todo tags tags-todo))
 	;; a normal command
 	(setq key (car e) desc (nth 1 e) type (nth 2 e) match (nth 3 e)
 	      settings (nth 4 e))
@@ -515,7 +583,7 @@ The table of checksums is written to the file mobile-checksums."
 (defun org-mobile-move-capture ()
   "Move the contents of the capture file to the inbox file.
 Return a marker to the location where the new content has been added.
-If nothing new has beed added, return nil."
+If nothing new has been added, return nil."
   (interactive)
   (let ((inbox-buffer (find-file-noselect org-mobile-inbox-for-pull))
 	(capture-buffer (find-file-noselect
@@ -523,8 +591,7 @@ If nothing new has beed added, return nil."
 					   org-mobile-directory)))
 	(insertion-point (make-marker))
 	not-empty content)
-    (save-excursion
-      (set-buffer capture-buffer)
+    (with-current-buffer capture-buffer
       (setq content (buffer-string))
       (setq not-empty (string-match "\\S-" content))
       (when not-empty
@@ -597,7 +664,7 @@ If BEG and END are given, only do this in that region."
 		 (not (member (marker-buffer id-pos) buf-list)))
 	(org-mobile-timestamp-buffer (marker-buffer id-pos))
 	(push (marker-buffer id-pos) buf-list))
-				     
+
       (if (or (not id-pos) (stringp id-pos))
 	  (progn
 	    (goto-char (+ 2 (point-at-bol)))
@@ -663,7 +730,7 @@ If BEG and END are given, only do this in that region."
 	      (insert "BAD FLAG ")
 	      (incf cnt-error)
 	      (throw 'next t))
-	    ;; Remember this place so tha we can return
+	    ;; Remember this place so that we can return
 	    (move-marker marker (point))
 	    (setq org-mobile-error nil)
 	    (save-excursion
@@ -702,10 +769,13 @@ If BEG and END are given, only do this in that region."
       (save-restriction
 	(widen)
 	(goto-char (point-min))
-	(when (re-search-forward
-	       "^\\([ \t]*\\)#\\+LAST_MOBILE_CHANGE:.*\n?" nil t)
-	  (goto-char (match-end 1))
-	  (delete-region (point) (match-end 0)))
+	(if (re-search-forward
+	     "^\\([ \t]*\\)#\\+LAST_MOBILE_CHANGE:.*\n?" nil t)
+	    (progn
+              (goto-char (match-end 1))
+	      (delete-region (point) (match-end 0)))
+          (if (looking-at ".*?-\\*-.*-\\*-")
+              (forward-line 1)))
 	(insert "#+LAST_MOBILE_CHANGE: "
 		(format-time-string "%Y-%m-%d %T") "\n")))))
 
@@ -719,7 +789,7 @@ The entry is expected to contain an inactive time stamp indicating when
 the entry was created.  When setting dates and
 times (for example for deadlines), the time strings are interpreted
 relative to that creation date.
-Abbreviations are expected to take up entire lines, jst because it is so
+Abbreviations are expected to take up entire lines, just because it is so
 easy to type RET on a mobile device.  Abbreviations start with one or two
 letters, followed immediately by a dot and then additional information.
 Generally the entire shortcut line is removed after action have been taken.
@@ -792,7 +862,7 @@ as a string."
 	(org-find-olp (cons file path))))))
 
 (defun org-mobile-edit (what old new)
-  "Edit item WHAT in the current entry by replacing OLD wih NEW.
+  "Edit item WHAT in the current entry by replacing OLD with NEW.
 WHAT can be \"heading\", \"todo\", \"tags\", \"priority\", or \"body\".
 The edit only takes place if the current value is equal (except for
 white space) the OLD.  If this is so, OLD will be replace by NEW
@@ -862,7 +932,7 @@ be returned that indicates what went wrong."
 						      (point))))
       (if (not (string-match "\\S-" current)) (setq current nil))
       (cond
-       ((org-mobile-bodies-same-p current new) t) ; no ation necesary
+       ((org-mobile-bodies-same-p current new) t) ; no action necessary
        ((or (org-mobile-bodies-same-p current old)
 	    (eq org-mobile-force-mobile-change t)
 	    (memq 'body org-mobile-force-mobile-change))

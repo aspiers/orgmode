@@ -3,8 +3,8 @@
 @setfilename ../../info/org
 @settitle The Org Manual
 
-@set VERSION 6.32trans
-@set DATE October 2009
+@set VERSION 6.33trans
+@set DATE November 2009
 
 @c Version and Contact Info
 @set MAINTAINERSITE @uref{http://orgmode.org,maintainers webpage}
@@ -337,6 +337,7 @@ Exporting
 * HTML export::                 Exporting to HTML
 * LaTeX and PDF export::        Exporting to La@TeX{}, and processing to PDF
 * DocBook export::              Exporting to DocBook
+* Freemind export::             Exporting to Freemind mind maps
 * XOXO export::                 Exporting to XOXO
 * iCalendar export::            Exporting in iCalendar format
 
@@ -358,6 +359,7 @@ La@TeX{} and PDF export
 * Sectioning structure::        Changing sectioning in La@TeX{} output
 * Tables in LaTeX export::      Options for exporting tables to La@TeX{}
 * Images in LaTeX export::      How to insert figures into La@TeX{} output
+* Beamer class export::         Turning the file into a presentation
 
 DocBook export
 
@@ -393,6 +395,7 @@ Sample configuration
 Miscellaneous
 
 * Completion::                  M-TAB knows what you need
+* Speed keys::                  Electic commands at the beginning of a headline
 * Customization::               Adapting Org to your taste
 * In-buffer settings::          Overview of the #+KEYWORDS
 * The very busy C-c C-c key::   When in doubt, press C-c C-c
@@ -1017,6 +1020,12 @@ variable @code{org-treat-insert-todo-heading-as-state-change}.
 Insert new TODO entry with same level as current heading.  Like
 @kbd{C-@key{RET}}, the new headline will be inserted after the current
 subtree.
+@kindex @key{TAB}
+@item @key{TAB} @r{in new, empty entry}
+In a new entry with no text yet, the first @key{TAB} demotes the entry to
+become a child of the previous one.  The next @key{TAB} makes it a parent,
+and so on, all the way to top level.  Yet another @key{TAB}, and you are back
+to the initial level.
 @kindex M-@key{left}
 @item M-@key{left}
 Promote current heading by one level.
@@ -1286,6 +1295,12 @@ bullet, a bullet is added to the current line.
 @kindex M-S-@key{RET}
 @item M-S-@key{RET}
 Insert a new item with a checkbox (@pxref{Checkboxes}).
+@kindex @key{TAB}
+@item @key{TAB} @r{in new, empty item}
+In a new item with no text yet, the first @key{TAB} demotes the item to
+become a child of the previous one.  The next @key{TAB} makes it a parent,
+and so on, all the way to the left margin.  Yet another @key{TAB}, and you
+are back to the initial level.
 @kindex S-@key{up}
 @kindex S-@key{down}
 @item S-@key{up}
@@ -2742,9 +2757,11 @@ file:/home/dominik/images/jupiter.jpg     @r{file, absolute path}
 /home/dominik/images/jupiter.jpg          @r{same as above}
 file:papers/last.pdf                      @r{file, relative path}
 ./papers/last.pdf                         @r{same as above}
+file:sometextfile::NNN                    @r{file with line number to jump to}
 file:projects.org                         @r{another Org file}
 file:projects.org::some words             @r{text search in Org file}
 file:projects.org::*task title            @r{heading search in Org file}
+docview:papers/last.pdf::NNN              @r{open file in doc-view mode at page NNN}
 id:B7423F4D-2E8A-471B-8810-C40F074717E9   @r{Link to heading by ID}
 news:comp.emacs                           @r{Usenet link}
 mailto:adent@@galaxy.net                   @r{Mail link}
@@ -3694,7 +3711,7 @@ after the minimum of 2 days has elapsed, and will appear overdue on Oct 19,
 after four days have elapsed.
 
 What's really useful about habits is that they are displayed along with a
-conistency graph, to show how consistent you've been at getting that task
+consistency graph, to show how consistent you've been at getting that task
 done in the past.  This graph shows every day that the task was done over the
 past three weeks, with colors for each day.  The colors used are:
 
@@ -3719,7 +3736,7 @@ habits are displayed in the agenda.
 @table @code
 @item org-habit-graph-column
 The buffer column at which the consistency graph should be drawn.  This will
-overwite any text in that column, so it's a good idea to keep your habits'
+overwrite any text in that column, so it's a good idea to keep your habits'
 titles brief and to the point.
 @item org-habit-preceding-days
 The amount of history, in days before today, to appear in consistency graphs.
@@ -3826,7 +3843,7 @@ this issue.
 
 @vindex org-hierarchical-todo-statistics
 If you would like to have the statistics cookie count any TODO entries in the
-subtree (not just direct children), confgure the variable
+subtree (not just direct children), configure the variable
 @code{org-hierarchical-todo-statistics}.  To do this for a single subtree,
 include the word @samp{recursive} into the value of the @code{COOKIE_DATA}
 property.
@@ -4218,6 +4235,26 @@ C-c}).  If you set the variable to the value @code{expert}, the special
 window is not even shown for single-key tag selection, it comes up only
 when you press an extra @kbd{C-c}.
 
+@vindex org-complete-tags-always-offer-all-agenda-tags
+As said before, when setting tags and @code{org-tag-alist} is nil, then the
+list of tags in the current buffer is used.  Normally, this behavior is very
+convenient, except in org remember buffers (@pxref{Remember}), because there
+are no tags that can be calculated dynamically.  Here, you most probably want
+to have completion for all tags in all agenda files.  This can be done by
+setting @code{org-complete-tags-always-offer-all-agenda-tags} to non-nil in
+those buffers.
+
+@lisp
+(add-hook 'org-remember-mode-hook
+          (lambda ()
+            (set (make-local-variable
+                  'org-complete-tags-always-offer-all-agenda-tags)
+                 t)))
+@end lisp
+
+Of course, you can also set it to @code{t} globally if you always want to
+have completion of all tags in all agenda files.
+
 @node Tag searches,  , Setting tags, Tags
 @section Tag searches
 @cindex tag searches
@@ -4574,6 +4611,8 @@ optional.  The individual parts have the following meaning:
 @var{width}           @r{An integer specifying the width of the column in characters.}
                 @r{If omitted, the width will be determined automatically.}
 @var{property}        @r{The property that should be edited in this column.}
+                @r{Special properties representing meta data are allowed here}
+                @r{as well (@pxref{Special properties})}
 (title)         @r{The header text for the column. If omitted, the}
                 @r{property name is used.}
 @{@var{summary-type}@}  @r{The summary type.  If specified, the column values for}
@@ -4592,15 +4631,22 @@ optional.  The individual parts have the following meaning:
                 @{:min@}    @r{Smallest time value in column.}
                 @{:max@}    @r{Largest time value.}
                 @{:mean@}   @r{Arithmetic mean of time values.}
+                @{@@min@}   @r{Minimum age (in days/hours/mins/seconds).}
+                @{@@max@}   @r{Maximum age (in days/hours/mins/seconds).}
+                @{@@mean@}  @r{Arithmetic mean of ages (in days/hours/mins/seconds).}
 @end example
 
 @noindent
+Be aware that you can only have one summary type for any property you
+include. Subsequent columns referencing the same property will all display the
+same summary information.
+
 Here is an example for a complete columns definition, along with allowed
 values.
 
 @example
 :COLUMNS:  %25ITEM %9Approved(Approved?)@{X@} %Owner %11Status \@footnote{Please note that the COLUMNS definition must be on a single line---it is wrapped here only because of formatting constraints.}
-                   %10Time_Estimate@{:@} %CLOCKSUM
+		   %10Time_Estimate@{:@} %CLOCKSUM
 :Owner_ALL:    Tammy Mark Karl Lisa Don
 :Status_ALL:   "In progress" "Not started yet" "Finished" ""
 :Approved_ALL: "[ ]" "[X]"
@@ -4632,7 +4678,7 @@ in the subtree.
 @vindex org-columns-default-format
 Turn on column view.  If the cursor is before the first headline in the file,
 column view is turned on for the entire file, using the @code{#+COLUMNS}
-definition.  If the cusor is somewhere inside the outline, this command
+definition.  If the cursor is somewhere inside the outline, this command
 searches the hierarchy, up from point, for a @code{:COLUMNS:} property that
 defines a format.  When one is found, the column view table is established
 for the tree starting at the entry that contains the @code{:COLUMNS:}
@@ -5204,17 +5250,25 @@ an item:
 @c
 @kindex C-c C-d
 @item C-c C-d
-Insert @samp{DEADLINE} keyword along with a stamp.  The insertion will
-happen in the line directly following the headline.  When called with a
-prefix arg, an existing deadline will be removed from the entry.
+Insert @samp{DEADLINE} keyword along with a stamp.  The insertion will happen
+in the line directly following the headline.  When called with a prefix arg,
+an existing deadline will be removed from the entry.  Depending on the
+variable @code{org-log-redeadline}@footnote{with corresponding
+@code{#+STARTUP} keywords @code{logredeadline}, @code{lognoteredeadline},
+and @code{nologredeadline}}, a note will be taken when changing an existing
+deadline.
 @c FIXME Any CLOSED timestamp will be removed.????????
 @c
 @kindex C-c C-s
 @item C-c C-s
 Insert @samp{SCHEDULED} keyword along with a stamp.  The insertion will
-happen in the line directly following the headline.  Any CLOSED
-timestamp will be removed.  When called with a prefix argument, remove
-the scheduling date from the entry.
+happen in the line directly following the headline.  Any CLOSED timestamp
+will be removed.  When called with a prefix argument, remove the scheduling
+date from the entry.  Depending on the variable
+@code{org-log-reschedule}@footnote{with corresponding @code{#+STARTUP}
+keywords @code{logredeadline}, @code{lognoteredeadline}, and
+@code{nologredeadline}}, a note will be taken when changing an existing
+scheduling time.
 @c
 @kindex C-c C-x C-k
 @kindex k a
@@ -5786,12 +5840,18 @@ use:
 character specifies how to select the template.  It is useful if the
 character is also the first letter of the name.  The next string specifies
 the template.  Two more (optional) strings give the file in which, and the
-headline under which, the new note should be stored.  The file (if not present
-or @code{nil}) defaults to @code{org-default-notes-file}, the heading to
-@code{org-remember-default-headline}.  If the file name is not an absolute
-path, it will be interpreted relative to @code{org-directory}.  The heading
-can also be the symbols @code{top} or @code{bottom} to send notes as level 1
-entries to the beginning or end of the file, respectively.
+headline under which, the new note should be stored.  The file (if not
+present or @code{nil}) defaults to @code{org-default-notes-file}, the heading
+to @code{org-remember-default-headline}.  If the file name is not an absolute
+path, it will be interpreted relative to @code{org-directory}.
+
+The heading can also be the symbols @code{top} or @code{bottom} to send notes
+as level 1 entries to the beginning or end of the file, respectively.  It may
+also be the symbol @code{date-tree}.  Then, a tree with year on level 1,
+month on level 2 and day on level three will be build in the file, and the
+entry will be filed into the tree under the current date@footnote{If the file
+contains an entry with a @code{DATE_TREE} property, the entire date tree will
+be build under that entry.}
 
 An optional sixth element specifies the contexts in which the user can select
 the template.  This element can be a list of major modes or a function.
@@ -6151,6 +6211,8 @@ Use the refile interface to jump to a heading.
 @kindex C-u C-u C-c C-w
 @item C-u C-u C-c C-w
 Jump to the location where @code{org-refile} last moved a tree to.
+@item C-2 C-c C-w
+Refile as the child of the item currently being clocked.
 @end table
 
 @node Archiving,  , Refiling notes, Capture - Refile - Archive
@@ -6161,6 +6223,14 @@ When a project represented by a (sub)tree is finished, you may want
 to move the tree out of the way and to stop it from contributing to the
 agenda.  Archiving is important to keep your working files compact and global
 searches like the construction of agenda views fast.
+
+@table @kbd
+@kindex C-c C-x C-a
+@item C-c C-x C-a
+@vindex org-archive-default-command
+Archive the current entry using the command specified in the variable
+@code{org-archive-default-command}.
+@end table
 
 @menu
 * Moving subtrees::             Moving a tree to an archive file
@@ -6177,8 +6247,7 @@ the archive file.
 @table @kbd
 @kindex C-c $
 @kindex C-c C-x C-s
-@itemx C-c $
-@item C-c C-x C-s
+@item C-c C-x C-s@ @r{or short} @ C-c $
 @vindex org-archive-location
 Archive the subtree starting at the cursor position to the location
 given by @code{org-archive-location}.
@@ -6250,7 +6319,7 @@ archived subtrees are not exposed, unless you configure the option
 During agenda view construction (@pxref{Agenda Views}), the content of
 archived trees is ignored unless you configure the option
 @code{org-agenda-skip-archived-trees}, in which case these trees will always
-be included.  In the agenda you can press the @kbd{v} key to get archives
+be included.  In the agenda you can press @kbd{v a} to get archives
 temporarily included.
 @item
 @vindex org-export-with-archived-trees
@@ -7380,6 +7449,7 @@ negative search term which @i{must not} occur/match in the entry for it to be
 selected.
 @end table
 
+@page
 @tsubheading{Remote editing}
 @cindex remote editing, from agenda
 
@@ -7398,6 +7468,11 @@ both in the agenda buffer and in the remote buffer.
 Change the TODO state of the item, both in the agenda and in the
 original org file.
 @c
+@kindex C-S-@key{right}
+@kindex C-S-@key{left}
+@item C-S-@key{right}@r{/}@key{left}
+Switch to the next/previous set of TODO keywords.
+@c
 @kindex C-k
 @item C-k
 @vindex org-agenda-confirm-kill
@@ -7410,17 +7485,26 @@ variable @code{org-agenda-confirm-kill}.
 @item C-c C-w
 Refile the entry at point.
 @c
+@kindex C-c C-x C-a
 @kindex a
-@item a
+@item C-c C-x C-a @ @r{or short} @ a
+@vindex org-archive-default-command
+Archive the subtree corresponding to the entry at point using the default
+archiving command set in @code{org-archive-default-command}.  When using the
+@code{a} key, confirmation will be required.
+@c
+@kindex C-c C-x a
+@item C-c C-x a
 Toggle the ARCHIVE tag for the current headline.
 @c
-@kindex A
-@item A
+@kindex C-c C-x A
+@item C-c C-x A
 Move the subtree corresponding to the current entry to its @emph{archive
 sibling}.
 @c
 @kindex $
-@item $
+@kindex C-c C-x C-s
+@item C-c C-x C-s @ @r{or short} @ $
 Archive the subtree corresponding to the current headline.  This means the
 entry will be moved to the configured archive location, most likely a
 different file.
@@ -7514,9 +7598,8 @@ into the past.
 @c
 @kindex >
 @item >
-Change the timestamp associated with the current line to today.
-The key @kbd{>} has been chosen, because it is the same as @kbd{S-.}
-on my keyboard.
+Change the timestamp associated with the current line.  The key @kbd{>} has
+been chosen, because it is the same as @kbd{S-.}  on my keyboard.
 @c
 @kindex I
 @item I
@@ -7584,10 +7667,24 @@ date at the cursor.
 @cindex diary entries, creating from agenda
 @kindex i
 @item i
-Insert a new entry into the diary.  Prompts for the type of entry
-(day, weekly, monthly, yearly, anniversary, cyclic) and creates a new
-entry in the diary, just as @kbd{i d}, etc., would do in the calendar.
-The date is taken from the cursor position.
+@vindex org-agenda-diary-file
+Insert a new entry into the diary, using the date at the cursor and (for
+block entries) the date at the mark.  This will add to the Emacs diary
+file@footnote{This file is parsed for the agenda when
+@code{org-agenda-include-diary} is set.}, in a way similar to the @kbd{i}
+command in the calendar.  The diary file will pop up in another window, where
+you can add the entry.
+
+If you configure @code{org-agenda-diary-file} to point to an Org-mode file,
+Org will create entries (in org-mode syntax) in that file instead.  Most
+entries will be stored in a date-based outline tree that will later make it
+easy to archive appointments from previous months/years.  The tree will be
+build under an entry with a @code{DATE_TREE} property, or else with years as
+top-level entries.  Emacs will prompt you for the entry text - if you specify
+it, the entry will be created in @code{org-agenda-diary-file} without further
+interaction.  If you directly press @key{RET} at the prompt without typing
+text, the target file will be shown in another window for you to finish the
+entry there.  See also the @kbd{k r} command.
 @c
 @kindex M
 @item M
@@ -8719,6 +8816,7 @@ enabled (default in Emacs 23).
 * HTML export::                 Exporting to HTML
 * LaTeX and PDF export::        Exporting to La@TeX{}, and processing to PDF
 * DocBook export::              Exporting to DocBook
+* Freemind export::             Exporting to Freemind mind maps
 * XOXO export::                 Exporting to XOXO
 * iCalendar export::            Exporting in iCalendar format
 @end menu
@@ -8828,7 +8926,7 @@ you can:
 H:         @r{set the number of headline levels for export}
 num:       @r{turn on/off section-numbers}
 toc:       @r{turn on/off table of contents, or set level limit (integer)}
-\n:        @r{turn on/off line-break-preservation}
+\n:        @r{turn on/off line-break-preservation (DOES NOT WORK)}
 @@:         @r{turn on/off quoted HTML tags}
 ::         @r{turn on/off fixed-width sections}
 |:         @r{turn on/off tables}
@@ -9298,7 +9396,7 @@ pages, configure the variable @code{org-export-html-use-infojs}.
 @section La@TeX{} and PDF export
 @cindex La@TeX{} export
 @cindex PDF export
-@cindex Guerry, Bastian
+@cindex Guerry, Bastien
 
 Org mode contains a La@TeX{} exporter written by Bastien Guerry.  With
 further processing, this backend is also used to produce PDF output.  Since
@@ -9311,6 +9409,7 @@ references, the PDF output file will be fully linked.
 * Sectioning structure::        Changing sectioning in La@TeX{} output
 * Tables in LaTeX export::      Options for exporting tables to La@TeX{}
 * Images in LaTeX export::      How to insert figures into La@TeX{} output
+* Beamer class export::         Turning the file into a presentation
 @end menu
 
 @node LaTeX/PDF export commands, Quoting LaTeX code, LaTeX and PDF export, LaTeX and PDF export
@@ -9407,14 +9506,18 @@ By default, the La@TeX{} output uses the class @code{article}.
 @vindex org-export-latex-classes
 @cindex #+LATEX_HEADER
 @cindex #+LATEX_CLASS
+@cindex #+LATEX_CLASS_OPTIONS
 @cindex property, LATEX_CLASS
+@cindex property, LATEX_CLASS_OPTIONS
 You can change this globally by setting a different value for
 @code{org-export-latex-default-class} or locally by adding an option like
 @code{#+LaTeX_CLASS: myclass} in your file, or with a @code{:LaTeX_CLASS:}
 property that applies when exporting a region containing only this (sub)tree.
 The class should be listed in @code{org-export-latex-classes}, where you can
 also define the sectioning structure for each class, as well as defining
-additional classes.  You can also use @code{#+LATEX_HEADER:
+additional classes.  In a similar way, @code{#+LaTeX_CLASS_OPTIONS} or a
+@code{LaTeX_CLASS_OPTIONS} property can specify the options for the
+@code{\documentclass} macro.  You can also use @code{#+LATEX_HEADER:
 \usepackage@{xyz@}} to add lines to the header.
 
 @node Tables in LaTeX export, Images in LaTeX export, Sectioning structure, LaTeX and PDF export
@@ -9438,7 +9541,7 @@ pages.  Finally, you can set the alignment string:
 @end example
 
 
-@node Images in LaTeX export,  , Tables in LaTeX export, LaTeX and PDF export
+@node Images in LaTeX export, Beamer class export, Tables in LaTeX export, LaTeX and PDF export
 @subsection Images in La@TeX{} export
 @cindex images, inline in La@TeX{}
 @cindex inlining images in La@TeX{}
@@ -9478,7 +9581,117 @@ settings for @code{\includegraphics} and @code{wrapfigure}.
 If you need references to a label created in this way, write
 @samp{\ref@{fig:SED-HR4049@}} just like in La@TeX{}.
 
-@node DocBook export, XOXO export, LaTeX and PDF export, Exporting
+@node Beamer class export,  , Images in LaTeX export, LaTeX and PDF export
+@subsection Beamer class export
+
+The LaTeX class @file{beamer} allows to produce high quality presentations
+using LaTeX can pdf processing.  Org-mode has special support for turning an
+Org-mode file or tree into a @file{beamer} presentation.
+
+When the LaTeX class for the current buffer (as set with @code{#+LaTeX_CLASS:
+beamer}) or subtree (set with a @code{LaTeX_CLASS} property) is
+@code{beamer}, a special export mode will turn the file or tree into a beamer
+presentation.  Any tree with not to deep level nesting should in principle be
+exportable as a beamer presentation.  By default, the top-level entries (or
+the first level below the selected subtree heading) will be turned into
+frames, and the outline structure below this level will become itemize lists.
+You can also configure the variable @code{org-beamer-frame-level} to a
+different level - then the hierarchy above frames will produce the sectioning
+structure of the presentation.
+
+A template for useful in-buffer settings or properties can be inserted into
+the buffer with @kbd{M-x org-beamer-settings-template}.  Among other things,
+this will install a column view format which is very handy for editing
+special properties used by beamer.
+
+You can influence the structure of the presentation using the following
+properties:
+
+@table @code
+@item BEAMER_env
+The environment that should be used to format this entry.  Valid environments
+are defined in the constant @code{org-beamer-environments-default}, and you
+can define more in @code{org-beamer-environments-extra}.  If this property is
+set, the entry will also get a @code{:B_environment:} tag to make this
+visible.  This tag has no semantic meaning, it is only a visual aid.
+@item BEAMER_envargs
+The beamer-special arguments that should be used for the environment, like
+@code{[t]} or @code{[<+->]} of @code{<2-3>}.  If the @code{BEAMER_col}
+property is also set, something like @code{C[t]} can be added here as well to
+set an options argument for the implied @code{columns} environment.
+@code{c[t]} will set an option for the implied @code{column} environment.
+@item BEAMER_col
+The width of a column that should start with this entry.  If this property is
+set, the entry will also get a @code{:BMCOL:} property to make this visible.
+Also this tag is only a visual aid.
+@item BEAMER_extra
+Additional commands that should be inserted after the environment has been
+opened.  For example, when creating a frame, this can be used to specify
+transitions.
+@end table
+
+Frames will automatically receive a @code{fragile} option if they contain
+source code that uses the verbatim environment.  Special @file{beamer}
+specific code can be inserted using @code{#+BEAMER:} and
+@code{#+BEGIN_beamer...#+end_beamer} constructs, similar to other export
+backends, but with the difference that @code{#+LaTeX:} stuff will be included
+in the presentation as well.
+
+You can turn on a special minor mode @code{org-beamer-mode} for editing
+support with
+
+@example
+#+STARTUP: beamer
+@end example
+
+@table @kbd
+@kindex C-c C-b
+@item C-c C-b
+In @code{org-beamer-mode}, this key offers fast selection of a beamer
+environment or the @code{BEAMER_col} property.
+@end table
+
+Column view provides a great way to set the environment of a node and other
+important parameters.  Make sure you are using a COLUMN format that is geared
+toward this special purpose.  The command @kbd{M-x
+org-beamer-settings-template} does define such a format.
+
+Here is a simple) example Org document that is intended for beamer export.
+
+@smallexample
+#+LaTeX_CLASS: beamer
+#+TITLE: Example Presentation
+#+AUTHOR: Carsten Dominik
+#+LaTeX_CLASS_OPTIONS: [presentation]
+#+BEAMER_FRAME_LEVEL: 2
+#+BEAMER_HEADER_EXTRA: \usetheme@{Madrid@}\usecolortheme@{default@}
+#+COLUMNS: %35ITEM %10BEAMER_env(Env) %10BEAMER_envargs(Args) %4BEAMER_col(Col) %8BEAMER_extra(Ex)
+
+* This is the first structural section
+ 
+** Frame 1 \\ with a subtitle
+*** Thanks to Eric Fraga                                      :BMCOL:B_block:
+    :PROPERTIES:
+    :BEAMER_env: block
+    :BEAMER_envargs: C[t]
+    :BEAMER_col: 0.5
+    :END:
+    for the first viable beamer setup in Org
+*** Thanks to everyone else                                   :BMCOL:B_block:
+    :PROPERTIES:
+    :BEAMER_col: 0.5
+    :BEAMER_env: block
+    :BEAMER_envargs: <2->
+    :END:
+    for contributing to the discussion
+** Frame 2 \\ where we will not use columns
+*** Request                                                         :B_block:
+    Please test this stuff!
+@end smallexample
+
+For more information, see the documentation on Worg.
+
+@node DocBook export, Freemind export, LaTeX and PDF export, Exporting
 @section DocBook export
 @cindex DocBook export
 @cindex PDF export
@@ -9671,7 +9884,20 @@ special characters included in XHTML entities:
 "
 @end example
 
-@node XOXO export, iCalendar export, DocBook export, Exporting
+@node Freemind export, XOXO export, DocBook export, Exporting
+@section Freemind export
+@cindex Freemind export
+@cindex mind map
+
+The freemind exporter was written by Lennart Borgman.
+
+@table @kbd
+@kindex C-c C-e m
+@item C-c C-e m
+Export as Freemind mind map @file{myfile.mm}.
+@end table
+
+@node XOXO export, iCalendar export, Freemind export, Exporting
 @section XOXO export
 @cindex XOXO export
 
@@ -10236,6 +10462,7 @@ This may be necessary in particular if files include other files via
 
 @menu
 * Completion::                  M-TAB knows what you need
+* Speed keys::                  Electic commands at the beginning of a headline
 * Customization::               Adapting Org to your taste
 * In-buffer settings::          Overview of the #+KEYWORDS
 * The very busy C-c C-c key::   When in doubt, press C-c C-c
@@ -10245,7 +10472,7 @@ This may be necessary in particular if files include other files via
 @end menu
 
 
-@node Completion, Customization, Miscellaneous, Miscellaneous
+@node Completion, Speed keys, Miscellaneous, Miscellaneous
 @section Completion
 @cindex completion, of @TeX{} symbols
 @cindex completion, of TODO keywords
@@ -10263,7 +10490,7 @@ This may be necessary in particular if files include other files via
 
 Emacs would not be Emacs without completion, and Org-mode uses it whenever it
 makes sense.  If you prefer an @i{iswitchb}- or @i{ido}-like interface for
-some of the completion prompts, you can specify your preferece by setting at
+some of the completion prompts, you can specify your preference by setting at
 most one of the variables @code{org-completion-use-iswitchb}
 @code{org-completion-use-ido}.
 
@@ -10307,7 +10534,25 @@ Elsewhere, complete dictionary words using Ispell.
 @end itemize
 @end table
 
-@node Customization, In-buffer settings, Completion, Miscellaneous
+@node Speed keys, Customization, Completion, Miscellaneous
+@section Speed keys
+@cindex speed keys
+@vindex org-use-speed-commands
+@vindex org-speed-commands-user
+
+Single keys can be made to execute commands when the cursor is at the
+beginning of a headline, i.e. before the first star.  Configure the variable
+@code{org-use-speed-commands} to activate this feature.  There is a
+pre-defined list of commands, and you can add more such commands using the
+variable @code{org-speed-commands-user}.  Speed keys do not only speed up
+navigation and other commands, but they also provide an alternative way to
+execute commands bound to keys that are not or not easily available on a tty,
+or on a small mobile device with a limited keyboard.
+
+To see which commands are available, activate the feature and press @kbd{?}
+with the cursor at the beginning of a headline.
+
+@node Customization, In-buffer settings, Speed keys, Miscellaneous
 @section Customization
 @cindex customization
 @cindex options, for customization
@@ -10446,6 +10691,12 @@ configured using these options (see variables @code{org-log-done},
 @cindex @code{logrepeat}, STARTUP keyword
 @cindex @code{lognoterepeat}, STARTUP keyword
 @cindex @code{nologrepeat}, STARTUP keyword
+@cindex @code{logreschedule}, STARTUP keyword
+@cindex @code{lognotereschedule}, STARTUP keyword
+@cindex @code{nologreschedule}, STARTUP keyword
+@cindex @code{logredeadline}, STARTUP keyword
+@cindex @code{lognoteredeadline}, STARTUP keyword
+@cindex @code{nologredeadline}, STARTUP keyword
 @example
 logdone            @r{record a timestamp when an item is marked DONE}
 lognotedone        @r{record timestamp and a note when DONE}
@@ -10455,6 +10706,12 @@ lognoterepeat      @r{record a note when reinstating a repeating item}
 nologrepeat        @r{do not record when reinstating repeating item}
 lognoteclock-out   @r{record a note when clocking out}
 nolognoteclock-out @r{don't record a note when clocking out}
+logreschedule      @r{record a timestamp when scheduling time changes}
+lognotereschedule  @r{record a note when scheduling time changes}
+nologreschedule    @r{do not record when a scheduling date changes}
+logredeadline      @r{record a timestamp when deadline changes}
+lognoteredeadline  @r{record a note when deadline changes}
+nologredeadline    @r{do not record when a deadline date changes}
 @end example
 @vindex org-hide-leading-stars
 @vindex org-odd-levels-only
@@ -10737,26 +10994,26 @@ customized workaround suits you better.  For example, changing a timestamp
 is really only fun with @kbd{S-@key{cursor}} keys, whereas on a
 tty you would rather use @kbd{C-c .} to re-insert the timestamp.
 
-@multitable @columnfractions 0.15 0.2 0.2
-@item @b{Default} @tab @b{Alternative 1} @tab @b{Alternative 2}
-@item @kbd{S-@key{TAB}}     @tab @kbd{C-u @key{TAB}}       @tab
-@item @kbd{M-@key{left}}    @tab @kbd{C-c C-x l}           @tab @kbd{@key{Esc} @key{left}}
-@item @kbd{M-S-@key{left}}  @tab @kbd{C-c C-x L}           @tab
-@item @kbd{M-@key{right}}   @tab @kbd{C-c C-x r}           @tab @kbd{@key{Esc} @key{right}}
-@item @kbd{M-S-@key{right}} @tab @kbd{C-c C-x R}           @tab
-@item @kbd{M-@key{up}}      @tab @kbd{C-c C-x u}           @tab @kbd{@key{Esc} @key{up}}
-@item @kbd{M-S-@key{up}}    @tab @kbd{C-c C-x U}           @tab
-@item @kbd{M-@key{down}}    @tab @kbd{C-c C-x d}           @tab @kbd{@key{Esc} @key{down}}
-@item @kbd{M-S-@key{down}}  @tab @kbd{C-c C-x D}           @tab
-@item @kbd{S-@key{RET}}     @tab @kbd{C-c C-x c}           @tab
-@item @kbd{M-@key{RET}}     @tab @kbd{C-c C-x m}           @tab @kbd{@key{Esc} @key{RET}}
-@item @kbd{M-S-@key{RET}}   @tab @kbd{C-c C-x M}           @tab
-@item @kbd{S-@key{left}}    @tab @kbd{C-c @key{left}}      @tab
-@item @kbd{S-@key{right}}   @tab @kbd{C-c @key{right}}     @tab
-@item @kbd{S-@key{up}}      @tab @kbd{C-c @key{up}}        @tab
-@item @kbd{S-@key{down}}    @tab @kbd{C-c @key{down}}      @tab
-@item @kbd{C-S-@key{left}}  @tab @kbd{C-c C-x @key{left}}  @tab
-@item @kbd{C-S-@key{right}} @tab @kbd{C-c C-x @key{right}} @tab
+@multitable @columnfractions 0.15 0.2 0.1 0.2
+@item @b{Default} @tab @b{Alternative 1} @tab @b{Speed key} @tab @b{Alternative 2} 
+@item @kbd{S-@key{TAB}}     @tab @kbd{C-u @key{TAB}}       @tab @kbd{C} @tab                            
+@item @kbd{M-@key{left}}    @tab @kbd{C-c C-x l}           @tab @kbd{l} @tab @kbd{@key{Esc} @key{left}} 
+@item @kbd{M-S-@key{left}}  @tab @kbd{C-c C-x L}           @tab @kbd{L} @tab                            
+@item @kbd{M-@key{right}}   @tab @kbd{C-c C-x r}           @tab @kbd{r} @tab @kbd{@key{Esc} @key{right}}
+@item @kbd{M-S-@key{right}} @tab @kbd{C-c C-x R}           @tab @kbd{R} @tab                           
+@item @kbd{M-@key{up}}      @tab @kbd{C-c C-x u}           @tab @kbd{ } @tab @kbd{@key{Esc} @key{up}}  
+@item @kbd{M-S-@key{up}}    @tab @kbd{C-c C-x U}           @tab @kbd{U} @tab                           
+@item @kbd{M-@key{down}}    @tab @kbd{C-c C-x d}           @tab @kbd{ } @tab @kbd{@key{Esc} @key{down}}
+@item @kbd{M-S-@key{down}}  @tab @kbd{C-c C-x D}           @tab @kbd{D} @tab                            
+@item @kbd{S-@key{RET}}     @tab @kbd{C-c C-x c}           @tab @kbd{ } @tab
+@item @kbd{M-@key{RET}}     @tab @kbd{C-c C-x m}           @tab @kbd{ } @tab @kbd{@key{Esc} @key{RET}}
+@item @kbd{M-S-@key{RET}}   @tab @kbd{C-c C-x M}           @tab @kbd{ } @tab
+@item @kbd{S-@key{left}}    @tab @kbd{C-c @key{left}}      @tab @kbd{ } @tab
+@item @kbd{S-@key{right}}   @tab @kbd{C-c @key{right}}     @tab @kbd{ } @tab
+@item @kbd{S-@key{up}}      @tab @kbd{C-c @key{up}}        @tab @kbd{ } @tab
+@item @kbd{S-@key{down}}    @tab @kbd{C-c @key{down}}      @tab @kbd{ } @tab
+@item @kbd{C-S-@key{left}}  @tab @kbd{C-c C-x @key{left}}  @tab @kbd{ } @tab
+@item @kbd{C-S-@key{right}} @tab @kbd{C-c C-x @key{right}} @tab @kbd{ } @tab
 @end multitable
 
 
@@ -10928,6 +11185,18 @@ fixed this problem:
 @cindex @file{windmove.el}
 This package also uses the @kbd{S-<cursor>} keys, so everything written
 in the paragraph above about CUA mode also applies here.
+
+@item @file{viper.el} by Michael Kifer
+@cindex @file{viper.el}
+@kindex C-c /
+Viper uses @kbd{C-c /} and therefore makes this key not access the
+corresponding Org-mode command @code{org-sparse-tree}.  You need to find
+another key for this command, or override the key in
+@code{viper-vi-global-user-map} with
+
+@lisp
+(define-key viper-vi-global-user-map "C-c /" 'org-sparse-tree)
+@end lisp
 
 @end table
 
@@ -12026,7 +12295,7 @@ the view, only the current agenda files will be searched.
 
 @node History and Acknowledgments, Main Index, MobileOrg, Top
 @appendix History and Acknowledgments
-@cindex acknowledgments
+@cindex acknowledgements
 @cindex history
 @cindex thanks
 
@@ -12091,6 +12360,8 @@ calculations and improved XEmacs compatibility, in particular by porting
 @item
 @i{Baoqiu Cui} contributed the DocBook exporter.
 @item
+@i{Dan Davison} wrote (together with @i{Eric Schulte}) Org Babel.
+@item
 @i{Eddward DeVilla} proposed and tested checkbox statistics.  He also
 came up with the idea of properties, and that there should be an API for
 them.
@@ -12114,11 +12385,13 @@ HTML agendas.
 @i{John Foerch} figured out how to make incremental search show context
 around a match in a hidden outline tree.
 @item
-@i{Niels Giesen} had the idea to automatically archive DONE trees.
+@i{Raimar Finken} wrote @file{org-git-line.el}.
 @item
 @i{Mikael Fornius} works as a mailing list moderator.
 @item
 @i{Austin Frank} works as a mailing list moderator.
+@item
+@i{Niels Giesen} had the idea to automatically archive DONE trees.
 @item
 @i{Bastien Guerry} wrote the La@TeX{} exporter and @file{org-bibtex.el}, and
 has been prolific with patches, ideas, and bug reports.
@@ -12207,8 +12480,8 @@ of feedback, developed and applied standards to the Org documentation.
 @i{Christian Schlauer} proposed angular brackets around links, among
 other things.
 @item
-@i{Eric Schulte} wrote @file{org-plot.el} and contributed various patches,
-small features and modules.
+@i{Eric Schulte} wrote @file{org-plot.el} and (together with @i{Dan Davison})
+Org Babel, and contributed various patches, small features and modules.
 @item
 Linking to VM/BBDB/Gnus was first inspired by @i{Tom Shannon}'s
 @file{organizer-mode.el}.
@@ -12281,7 +12554,7 @@ and contributed various ideas and code snippets.
 
 This is not a complete index of variables and faces, only the ones that are
 mentioned in the manual.  For a more complete list, use @kbd{M-x
-org-customize @key{RET}} and then klick yourself through the tree.
+org-customize @key{RET}} and then click yourself through the tree.
 
 @printindex vr
 
