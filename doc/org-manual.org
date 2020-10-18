@@ -9758,6 +9758,34 @@ the other commands, point needs to be in the desired line.
   Drag the line at point forward one line.  With a numeric prefix
   argument, drag forward by that many lines.
 
+
+- {{{kbd(S-M-UP)}}} (~org-agenda-manually-order-up~) ::
+
+  #+kindex: S-M-UP
+  #+findex: org-agenda-manually-order-up
+  Reorder the agenda line under point to be above the previous line.
+
+  Unlike ~org-agenda-drag-line-backward~, this does persist after an
+  agenda refresh and does modify the contributing Org files; it swaps
+  the =AGENDA_ORDER= property of the line under point with the value
+  of the same property for the previous line.  This only makes sense
+  if a) ~org-agenda-sorting-strategy~ includes ~manual-up~ or
+  ~manual-down~, and b) the previous line also has =AGENDA_ORDER=
+  defined, so it aborts with an error if either of these is not the
+  case.
+
+  It also invokes ~org-agenda-drag-line-backward~ to immediately
+  update the ordering without requiring a more expensive agenda
+  refresh.
+
+  With a numeric prefix argument, reorder upwards by that many lines.
+
+- {{{kbd(S-M-DOWN)}}} (~org-agenda-manually-order-down~) ::
+
+  #+kindex: S-M-DOWN
+  #+findex: org-agenda-manually-order-down
+  TODO
+
 *** Remote editing
 :PROPERTIES:
 :UNNUMBERED: notoc

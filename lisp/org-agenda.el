@@ -259,6 +259,7 @@ you can \"misuse\" it to also add other text to the header."
     (const effort-up) (const effort-down)
     (const habit-up) (const habit-down)
     (const alpha-up) (const alpha-down)
+    (const manual-up) (const manual-down)
     (const user-defined-up) (const user-defined-down))
   "Sorting choices.")
 
@@ -1568,7 +1569,7 @@ will align with agenda items."
   :group 'org-agenda)
 
 (defcustom org-agenda-sorting-strategy
-  '((agenda habit-down time-up priority-down category-keep)
+  '((agenda habit-down time-up priority-down category-keep manual-up)
     (todo   priority-down category-keep)
     (tags   priority-down category-keep)
     (search category-keep))
@@ -1601,6 +1602,8 @@ todo-state-up      Sort by todo state, tasks that are done last.
 todo-state-down    Sort by todo state, tasks that are done first.
 effort-up          Sort numerically by estimated effort, high effort last.
 effort-down        Sort numerically by estimated effort, high effort first.
+manual-up          Sort according to AGENDA_ORDER property, high last.
+manual-down        Sort according to AGENDA_ORDER property, high first.
 user-defined-up    Sort according to `org-agenda-cmp-user-defined', high last.
 user-defined-down  Sort according to `org-agenda-cmp-user-defined', high first.
 habit-up           Put entries that are habits first.
@@ -1638,6 +1641,14 @@ Custom commands can bind this variable in the options section."
 		      (repeat ,org-sorting-choice))
 		(cons (const :tag "Strategy for search matches" search)
 		      (repeat ,org-sorting-choice)))))
+
+(defcustom org-agenda-entry-manual-order-default 99
+  "Default value for manually ordering agenda entries.
+When sorting via the `manual-up' or `manual-down' strategies,
+entries which don't have an AGENDA_ORDER property will default to
+this value in the ordering."
+  :group 'org-agenda-sorting
+  :type 'number)
 
 (defcustom org-agenda-cmp-user-defined nil
   "A function to define the comparison `user-defined'.
@@ -2377,6 +2388,9 @@ The following commands are available:
 (org-defkey org-agenda-mode-map "g" #'org-agenda-redo-all)
 (org-defkey org-agenda-mode-map "e" #'org-agenda-set-effort)
 (org-defkey org-agenda-mode-map "\C-c\C-xe" #'org-agenda-set-effort)
+(org-defkey org-agenda-mode-map [(shift meta down)] #'org-agenda-manually-order-down)
+(org-defkey org-agenda-mode-map [(shift meta up)] #'org-agenda-manually-order-up)
+(org-defkey org-agenda-mode-map "\C-o" #'org-agenda-show-entry-manual-order)
 (org-defkey org-agenda-mode-map "\C-c\C-x\C-e"
 	    #'org-clock-modify-effort-estimate)
 (org-defkey org-agenda-mode-map "\C-c\C-xp" #'org-agenda-set-property)
@@ -7191,6 +7205,37 @@ their type."
     (cond ((if ta (and tb (< ta tb)) tb) -1)
 	  ((if tb (and ta (< tb ta)) ta) +1))))
 
+(defun org-agenda-entry-manual-order (entry)
+  "Returns the numeric order of the given agenda entry, as specified by
+the AGENDA_ORDER property, or nil if unspecified."
+  (let* ((marker (get-text-property 0 'org-marker entry))
+         (order-str (org-entry-get marker "AGENDA_ORDER")))
+    (and order-str (string-to-number order-str))))
+
+(defun org-agenda-entry-manual-order-at-point ()
+  "Returns the manual agenda sorting order of the entry under
+point, as defined by the AGENDA_ORDER property."
+  (org-agenda-entry-order (buffer-substring (point) (1+ (point)))))
+
+(defun org-agenda-show-entry-manual-order ()
+  "Shows the manual agenda sorting order of the entry under
+point, as defined by the AGENDA_ORDER property, or the default if
+the property is not defined."
+  (interactive)
+  (let ((order (org-agenda-entry-manual-order-at-point)))
+    (message "Manual agenda order is %s"
+             (if order (number-to-string order)
+               (format "unspecified (defaults to %d)"
+                       org-agenda-entry-manual-order-default)))))
+
+(defun org-cmp-manual-order (a b)
+  (let ((a-order (or (org-agenda-entry-manual-order a)
+                     org-agenda-entry-manual-order-default))
+        (b-order (or (org-agenda-entry-manual-order b)
+                     org-agenda-entry-manual-order-default)))
+    (cond ((> a-order b-order) +1)
+          ((< a-order b-order) -1))))
+
 (defsubst org-cmp-habit-p (a b)
   "Compare the todo states of strings A and B."
   (let ((ha (get-text-property 1 'org-habit-p a))
@@ -7240,6 +7285,7 @@ definitive comparison, then return a cons cell (RESULT . SORTER)."
     ('todo-state-up   (org-cmp-todo-state a b))
     ('habit-up        (org-cmp-habit-p a b))
     ('alpha-up        (org-cmp-alpha a b))
+    ('manual-up       (org-cmp-manual-order a b))
     ('user-defined-up (funcall org-agenda-cmp-user-defined a b))))
 
 (defun org-entries-lessp (a b)
@@ -9561,6 +9607,49 @@ Called with a universal prefix arg, show the priority instead of setting it."
 	 (end-of-line 1)
 	 (setq newhead (org-get-heading)))
        (org-agenda-change-all-lines newhead hdmarker)))))
+
+(defun org-agenda-manually-order-down (&optional backward)
+  "Reorder an agenda line forward by one line.
+When the optional argument `backward' is non-nil, reorder backwards.
+
+This swaps the value of the AGENDA_ORDER property for the line
+under point with the value for the next line, or the previous one
+if BACKWARD is non-nil.  If either of the lines does not already
+have the AGENDA_ORDER property set, it is set to `org-
+
+This only makes sense if `org-agenda-sorting-strategy' includes
+'manual-up or 'manual-down, so it aborts with an error if this is
+not the case.
+
+Also uses `org-agenda-drag-line-forward' to immediately update
+the ordering without requiring a more expensive agenda refresh."
+  (interactive "p")
+  (let* ((direction (if backward -1 1))
+	 (target-order (save-excursion
+			 (org-agenda-next-item direction)
+			 (org-agenda-entry-manual-order-at-point))))
+    (cond
+     ((not target-order)
+      (error "Target line had no AGENDA_ORDER property defined"))
+     ((not (org-em 'manual-up 'manual-down
+		   (assq 'agenda org-agenda-sorting-strategy)))
+      (error "Neither 'manual-up nor 'manual-down are in org-agenda-sorting-strategy"))
+     (t
+      (let* ((hdmarker (or (org-get-at-bol 'org-hd-marker)
+			   (org-agenda-error)))
+	     (buffer (marker-buffer hdmarker))
+	     ;; (marker
+	     ;;  (get-text-property 0 'org-marker
+	     ;; 			 (buffer-substring (point) (1+ (point)))))
+	     (new-order
+	      (if further-target-order
+		  (/ (+ target-order further-target-order) 2.0)
+		(+ target-order direction))))
+	(message "new order %s between target orders %s and %s"
+		 new-order target-order further-target-order)
+	(org-with-remote-undo buffer
+	  (org-entry-put hdmarker "AGENDA_ORDER" (number-to-string new-order))
+	  (org-agenda-drag-line-forward n backward)))))))
 
 (defun org-agenda-toggle-archive-tag ()
   "Toggle the archive tag for the current entry."
