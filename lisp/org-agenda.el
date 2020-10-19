@@ -7198,65 +7198,54 @@ their type."
     (cond ((and ha (not hb)) -1)
 	  ((and (not ha) hb) +1))))
 
+(defun org-entries-cmp (a b)
+  "Iterate through the sorting criteria in
+`org-agenda-sorting-strategy-selected' until a sorter returns a
+definitive comparison, then return a cons cell (RESULT . SORTER)."
+  (let (sorted-by
+	sort-result
+	(ss org-agenda-sorting-strategy-selected))
+    (while (and ss (not sorted-by))
+      (let* ((sorter (car ss))
+	     (sorter-name (symbol-name sorter))
+	     ;; If sorter symbol ends in "-down" then pass the -up version
+	     ;; to org-entries-cmp-1 and then negate the result.
+	     (sorter-down-p (string-match "-down\\'" sorter-name))
+	     (up-sorter
+	      (if sorter-down-p
+		  (replace-regexp-in-string "-down\\'" "-up" sorter-name)
+		sorter-name)))
+	(setq sort-result (org-entries-cmp-1 a b (intern up-sorter)))
+	(setq ss (cdr ss))
+	(when sort-result
+	  (setq sort-result (if sorter-down-p (- sort-result) sort-result))
+	  (setq sorted-by sorter))))
+    (cons sort-result sorted-by)))
+
+(defun org-entries-cmp-1 (a b sorter)
+  "Compare two entries via the given sorter."
+  (pcase sorter
+    ('timestamp-up    (org-cmp-ts a b ""))
+    ('scheduled-up    (org-cmp-ts a b "scheduled"))
+    ('deadline-up     (org-cmp-ts a b "deadline"))
+    ('tsia-up         (org-cmp-ts a b "timestamp_ia"))
+    ('ts-up           (org-cmp-ts a b "timestamp"))
+    ('time-up         (org-cmp-time a b))
+    ('stats-up        (org-cmp-values a b 'org-stats))
+    ('priority-up     (org-cmp-values a b 'priority))
+    ('effort-up       (org-cmp-effort a b))
+    ('category-up     (org-cmp-category a b))
+    ('category-keep   (if (org-cmp-category a b) +1 nil)) ;; FIXME: check this
+    ('tag-up          (org-cmp-tag a b))
+    ('todo-state-up   (org-cmp-todo-state a b))
+    ('habit-up        (org-cmp-habit-p a b))
+    ('alpha-up        (org-cmp-alpha a b))
+    ('user-defined-up (funcall org-agenda-cmp-user-defined a b))))
+
 (defun org-entries-lessp (a b)
   "Predicate for sorting agenda entries."
-  ;; The following variables will be used when the form is evaluated.
-  ;; So even though the compiler complains, keep them.
-  (let* ((ss org-agenda-sorting-strategy-selected)
-	 (timestamp-up    (and (org-em 'timestamp-up 'timestamp-down ss)
-			       (org-cmp-ts a b "")))
-	 (timestamp-down  (if timestamp-up (- timestamp-up) nil))
-	 (scheduled-up    (and (org-em 'scheduled-up 'scheduled-down ss)
-			       (org-cmp-ts a b "scheduled")))
-	 (scheduled-down  (if scheduled-up (- scheduled-up) nil))
-	 (deadline-up     (and (org-em 'deadline-up 'deadline-down ss)
-			       (org-cmp-ts a b "deadline")))
-	 (deadline-down   (if deadline-up (- deadline-up) nil))
-	 (tsia-up         (and (org-em 'tsia-up 'tsia-down ss)
-			       (org-cmp-ts a b "timestamp_ia")))
-	 (tsia-down       (if tsia-up (- tsia-up) nil))
-	 (ts-up           (and (org-em 'ts-up 'ts-down ss)
-			       (org-cmp-ts a b "timestamp")))
-	 (ts-down         (if ts-up (- ts-up) nil))
-	 (time-up         (and (org-em 'time-up 'time-down ss)
-			       (org-cmp-time a b)))
-	 (time-down       (if time-up (- time-up) nil))
-	 (stats-up        (and (org-em 'stats-up 'stats-down ss)
-			       (org-cmp-values a b 'org-stats)))
-	 (stats-down      (if stats-up (- stats-up) nil))
-	 (priority-up     (and (org-em 'priority-up 'priority-down ss)
-			       (org-cmp-values a b 'priority)))
-	 (priority-down   (if priority-up (- priority-up) nil))
-	 (effort-up       (and (org-em 'effort-up 'effort-down ss)
-			       (org-cmp-effort a b)))
-	 (effort-down     (if effort-up (- effort-up) nil))
-	 (category-up     (and (or (org-em 'category-up 'category-down ss)
-				   (memq 'category-keep ss))
-			       (org-cmp-category a b)))
-	 (category-down   (if category-up (- category-up) nil))
-	 (category-keep   (if category-up +1 nil))
-	 (tag-up          (and (org-em 'tag-up 'tag-down ss)
-			       (org-cmp-tag a b)))
-	 (tag-down        (if tag-up (- tag-up) nil))
-	 (todo-state-up   (and (org-em 'todo-state-up 'todo-state-down ss)
-			       (org-cmp-todo-state a b)))
-	 (todo-state-down (if todo-state-up (- todo-state-up) nil))
-	 (habit-up        (and (org-em 'habit-up 'habit-down ss)
-			       (org-cmp-habit-p a b)))
-	 (habit-down      (if habit-up (- habit-up) nil))
-	 (alpha-up        (and (org-em 'alpha-up 'alpha-down ss)
-			       (org-cmp-alpha a b)))
-	 (alpha-down      (if alpha-up (- alpha-up) nil))
-	 (need-user-cmp   (org-em 'user-defined-up 'user-defined-down ss))
-	 user-defined-up user-defined-down)
-    (when (and need-user-cmp org-agenda-cmp-user-defined
-	       (functionp org-agenda-cmp-user-defined))
-      (setq user-defined-up
-	    (funcall org-agenda-cmp-user-defined a b)
-	    user-defined-down (if user-defined-up (- user-defined-up) nil)))
-    (cdr (assoc
-	  (eval (cons 'or org-agenda-sorting-strategy-selected))
-	  '((-1 . t) (1 . nil) (nil . nil))))))
+  (let ((sort-result (car (org-entries-cmp a b))))
+    (cdr (assoc sort-result '((-1 . t) (1 . nil) (nil . nil))))))
 
 ;;; Agenda restriction lock
 
